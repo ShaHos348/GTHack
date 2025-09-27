@@ -272,7 +272,6 @@ const PatientHistory: React.FC = () => {
               <div className="space-y-2">
                 <Label htmlFor="insurance">Insurance + policy number</Label>
                 <Input id="insurance" value={values.insurance} onChange={update("insurance")} />
-                <FieldError name="insurance" />
               </div>
 
               <div className="space-y-2">
@@ -284,7 +283,6 @@ const PatientHistory: React.FC = () => {
                   rows={4}
                   className="border rounded-md px-3 py-2 w-full"
                 />
-                <FieldError name="currentMedications" />
               </div>
 
               <div className="space-y-2">
@@ -296,7 +294,6 @@ const PatientHistory: React.FC = () => {
                   rows={4}
                   className="border rounded-md px-3 py-2 w-full"
                 />
-                <FieldError name="allergies" />
               </div>
 
               <div className="space-y-2">
@@ -308,7 +305,6 @@ const PatientHistory: React.FC = () => {
                   rows={4}
                   className="border rounded-md px-3 py-2 w-full"
                 />
-                <FieldError name="pastSurgeries" />
               </div>
 
               <div className="space-y-2">
