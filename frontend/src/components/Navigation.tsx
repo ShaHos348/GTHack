@@ -8,17 +8,20 @@ import {
   NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu";
 import PatientHistory from "./PatientHistory";
+import PatientQuestionaire from "./PatientQuestionaire";
 
 export default function Navigation() {
-  const [activeTab, setActiveTab] = React.useState("home");
+  const [activeTab, setActiveTab] = React.useState("patient-questionaire");
 
   return (
     <div className="flex flex-col align-middle bg-transparent items-center py-30">
       <NavigationMenu viewport={false}>
         <NavigationMenuList>
           <NavigationMenuItem>
-            <NavigationMenuTrigger onClick={() => setActiveTab("home")}>
-              Home
+            <NavigationMenuTrigger
+              onClick={() => setActiveTab("patient-questionaire")}
+            >
+              Patient Questionaire
             </NavigationMenuTrigger>
           </NavigationMenuItem>
 
@@ -40,7 +43,7 @@ export default function Navigation() {
 
       {/* Dynamic content area */}
       <div className="flex-1 w-3/4 bg-red-600">
-        {activeTab === "home" && <div>Welcome to Home</div>}
+        {activeTab === "patient-questionaire" && <PatientQuestionaire />}
         {activeTab === "patient-history" && <PatientHistory />}
         {activeTab === "about" && <div>About Us</div>}
       </div>

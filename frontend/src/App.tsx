@@ -3,8 +3,7 @@ import Login from "./components/login";
 
 function App() {
   return (
-    <div className="p-4">
-      {/* Default content: Login */}
+    <div>
       <Login />
 
       {/* Simple navigation link */}
