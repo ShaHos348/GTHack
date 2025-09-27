@@ -1,33 +1,68 @@
 import * as React from "react";
-import { useParams } from "react-router-dom";
 import {
   NavigationMenu,
   NavigationMenuList,
   NavigationMenuItem,
   NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu";
-import PatientHistory from "./PatientHistory";
+import PHDoctorView from "./PHDoctorView";
+import { useEffect, useMemo, useState } from "react";
+import { auth, db } from "./firebase";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 
 export default function PatientInfo() {
-    const uid = React.useMemo(() => {
-      const parts = window.location.pathname.split("/");
-      return parts[parts.length - 1]; // this is the UID
-    }, []);
+  const pid = React.useMemo(() => {
+    const parts = window.location.pathname.split("/");
+    return parts[parts.length - 1]; // this is the UID
+  }, []);
+
+  const uid = useMemo(() => auth.currentUser?.uid ?? null, [auth.currentUser]);
 
   const [activeTab, setActiveTab] = React.useState("patient-history");
-  const [displayedTab, setDisplayedTab] = React.useState(activeTab);
   const [fade, setFade] = React.useState(true);
+  const [patientFound, setPatientFound] = useState(false);
+  const [banner, setBanner] = useState<string>("");
 
   const handleTabChange = (tab: string) => {
     setFade(false); // start fade out
     setTimeout(() => {
-      setDisplayedTab(tab); // swap component
       setFade(true); // fade in
       setActiveTab(tab);
     }, 200); // duration matches CSS fade
   };
 
-
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setBanner("");
+      if (!pid) {
+        setPatientFound(false);
+        setBanner("Unable to find patient");
+        return;
+      }
+      try {
+        const snap = await getDoc(doc(db, "patients", pid));
+        if (mounted) {
+          if (snap.exists()) {
+            if ((snap.data() as Partial<any>).doctor !== uid) {
+              setPatientFound(false);
+              setBanner("Unable to find patient");
+            } else {
+              setPatientFound(true);
+            }
+          } else {
+            setPatientFound(false);
+            setBanner("Unable to find patient");
+          }
+        }
+      } catch (e: any) {
+        if (mounted) setBanner(`Failed to load: ${e.message || e.code}`);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [pid]);
 
   return (
     <div className="flex flex-col items-center bg-transparent py-30">
@@ -89,22 +124,34 @@ export default function PatientInfo() {
       </NavigationMenu>
 
       {/* Dynamic content area */}
-      <div
-        className={`flex-1 w-3/4 transition-opacity duration-200 ${
-          fade ? "opacity-100" : "opacity-0"
-        }`}
-      >
-        {activeTab === "patient-history" && <PatientHistory />}
-        {activeTab === "patient-questionnaire-results" && (
-          <div>To be done: patient-questionnaire-results</div>
-        )}
-        {activeTab === "patient-test-reports" && (
-          <div>To be done: patient-test-reports</div>
-        )}
-        {activeTab === "patient-prescriptions" && (
-          <div>To be done: patient-prescriptions</div>
-        )}
-      </div>
+      {!patientFound ? (
+        <div
+          className="mb-4 rounded-md border p-3 text-sm"
+          style={{
+            borderColor: banner.startsWith("✅") ? "#22c55e33" : "#ef444433",
+            background: banner.startsWith("✅") ? "#22c55e11" : "#ef444411",
+          }}
+        >
+          {banner}
+        </div>
+      ) : (
+        <div
+          className={`flex-1 w-3/4 transition-opacity duration-200 ${
+            fade ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          {activeTab === "patient-history" && <PHDoctorView pid={pid} />}
+          {activeTab === "patient-questionnaire-results" && (
+            <div>To be done: patient-questionnaire-results</div>
+          )}
+          {activeTab === "patient-test-reports" && (
+            <div>To be done: patient-test-reports</div>
+          )}
+          {activeTab === "patient-prescriptions" && (
+            <div>To be done: patient-prescriptions</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
