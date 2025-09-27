@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/navigation-menu";
 import PHDoctorView from "./PHDoctorView";
 import PQResults from "./PQResults";
+import PTestsDoctorView from "./PTestsDoctorView";
 import { useEffect, useMemo, useState } from "react";
 import { auth, db } from "./firebase";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
@@ -181,9 +182,7 @@ export default function PatientInfo() {
         >
           {activeTab === "patient-history" && <PHDoctorView pid={pid} />}
           {activeTab === "patient-questionnaire-results" && <PQResults pid={pid} />}
-          {activeTab === "patient-test-reports" && (
-            <div>To be done: patient-test-reports</div>
-          )}
+          {activeTab === "patient-test-reports" && <PTestsDoctorView pid={pid}/>}
           {activeTab === "patient-prescriptions" && (
             <div>To be done: patient-prescriptions</div>
           )}
