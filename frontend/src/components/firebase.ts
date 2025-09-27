@@ -1,4 +1,3 @@
-// src/components/firebase.ts
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import {
   getAuth,
@@ -8,7 +7,7 @@ import {
   onAuthStateChanged,
   type Auth,
   createUserWithEmailAndPassword,
-  signInWithEmailAndPassword
+  signInWithEmailAndPassword,
 } from "firebase/auth";
 import {
   getStorage,
@@ -21,6 +20,13 @@ import {
   type ListResult,
   type StorageReference,
 } from "firebase/storage";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  serverTimestamp,
+} from "firebase/firestore";
 
 // ---- Types ----
 type FirebaseConfig = {
@@ -33,6 +39,7 @@ type FirebaseConfig = {
 };
 
 export type UserFile = { name: string; url: string };
+export type UserRole = "patient" | "doctor";
 
 // ---- Env typings (Vite) ----
 declare global {
@@ -74,6 +81,29 @@ export function logout() {
 }
 export { onAuthStateChanged };
 
+export function signUpWithEmail(email: string, password: string) {
+  return createUserWithEmailAndPassword(auth, email, password);
+}
+export function signInWithEmail(email: string, password: string) {
+  return signInWithEmailAndPassword(auth, email, password);
+}
+
+// ---- Firestore (roles) ----
+export const db = getFirestore(app);
+
+export async function getUserRole(uid: string): Promise<UserRole | null> {
+  const d = await getDoc(doc(db, "users", uid));
+  return (d.exists() ? (d.data().role as UserRole) : null) ?? null;
+}
+
+export async function setUserRole(uid: string, role: UserRole) {
+  await setDoc(
+    doc(db, "users", uid),
+    { role, updatedAt: serverTimestamp(), createdAt: serverTimestamp() },
+    { merge: true }
+  );
+}
+
 // ---- Storage (bind explicitly to your bucket) ----
 const bucketUrl = `gs://${firebaseConfig.storageBucket}`;
 export const storage: FirebaseStorage = getStorage(app, bucketUrl);
@@ -107,12 +137,5 @@ export async function fetchUserFiles(uid: string): Promise<UserFile[]> {
   );
 }
 
-export function signUpWithEmail(email: string, password: string) {
-  return createUserWithEmailAndPassword(auth, email, password);
-}
-export function signInWithEmail(email: string, password: string) {
-  return signInWithEmailAndPassword(auth, email, password);
-}
-
-// ---- Re-exports for convenience (so callers import only from this file) ----
+// ---- Re-exports ----
 export { ref, listAll, getDownloadURL, uploadBytes };
