@@ -30,6 +30,11 @@ export default function Navigation() {
       setActiveTab(tab);
     }, 200); // duration matches CSS fade
   };
+
+  const handleQuestionnaireComplete = () => {
+    // Transition to Dynamic Questionnaire after Patient Questionnaire is saved
+    handleTabChange("dynamic-questionnaire");
+  };
   const handleSignout = async () => {
     try {
       await logout();
@@ -76,15 +81,7 @@ export default function Navigation() {
             </NavigationMenuTrigger>
           </NavigationMenuItem>
 
-          <NavigationMenuItem>
-            <NavigationMenuTrigger
-              className={`w-full font-semibold rounded-full transition-colors bg-transparent "
-  ${activeTab === "dynamic-questionnaire" ? "text-primary " : "text-black"}`}
-              onClick={() => handleTabChange("dynamic-questionnaire")}
-            >
-              Dynamic Questionnaire
-            </NavigationMenuTrigger>
-          </NavigationMenuItem>
+
 
           <NavigationMenuItem>
             <NavigationMenuTrigger
@@ -126,7 +123,9 @@ export default function Navigation() {
           fade ? "opacity-100" : "opacity-0"
         }`}
       >
-        {activeTab === "patient-questionnaire" && <PatientQuestionnaire />}
+        {activeTab === "patient-questionnaire" && (
+          <PatientQuestionnaire onComplete={handleQuestionnaireComplete} />
+        )}
         {activeTab === "patient-history" && <PatientHistory />}
         {activeTab === "patient-tests" && <PatientTests />}
         {activeTab === "dynamic-questionnaire" && <DynamicQuestionnaire />}

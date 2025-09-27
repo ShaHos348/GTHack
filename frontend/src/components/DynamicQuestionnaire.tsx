@@ -89,7 +89,6 @@ Begin by asking the patient to describe their main symptoms.
           context += `\n- Lifestyle: ${patientData.lifestyle}`;
         }
       }
-      // TODO: Handle nested questionnaire data better
       if (questionnaireData && Object.keys(questionnaireData).length > 0) {
         context += `\n\nPrevious Questionnaire Responses:`;
         Object.entries(questionnaireData).forEach(([key, value]) => {
@@ -98,7 +97,7 @@ Begin by asking the patient to describe their main symptoms.
           }
         });
       }
-
+      // TODO: Save Summary in Database 
       console.log('📋 FINAL BUILT CONTEXT:');
       console.log('========================');
       console.log(context);
