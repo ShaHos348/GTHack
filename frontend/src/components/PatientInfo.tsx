@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useParams } from "react-router-dom";
 import {
   NavigationMenu,
   NavigationMenuList,
@@ -6,9 +7,13 @@ import {
   NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu";
 import PatientHistory from "./PatientHistory";
-import PatientQuestionnaire from "./PatientQuestionaire";
 
 export default function PatientInfo() {
+    const uid = React.useMemo(() => {
+      const parts = window.location.pathname.split("/");
+      return parts[parts.length - 1]; // this is the UID
+    }, []);
+
   const [activeTab, setActiveTab] = React.useState("patient-history");
   const [displayedTab, setDisplayedTab] = React.useState(activeTab);
   const [fade, setFade] = React.useState(true);
@@ -21,6 +26,8 @@ export default function PatientInfo() {
       setActiveTab(tab);
     }, 200); // duration matches CSS fade
   };
+
+
 
   return (
     <div className="flex flex-col items-center bg-transparent py-30">
