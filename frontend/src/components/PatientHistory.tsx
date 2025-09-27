@@ -145,14 +145,25 @@ const PatientHistory: React.FC = () => {
     // save values into database, go to navbar
     setSaving(true);
     try {
-      const payload = { ...values, uid, updatedAt: serverTimestamp() };
-      await setDoc(doc(db, "patients", uid), payload, { merge: true });
+      const ref = doc(db, "patients", uid);
+      const snap = await getDoc(ref);
+
+      // If new, include doctor: null
+      const payload = {
+        ...values,
+        uid,
+        updatedAt: serverTimestamp(),
+        ...(snap.exists() ? {} : { doctor: null }),
+      };
+
+      await setDoc(ref, payload, { merge: true });
       navigate("/patientdashboard");
     } catch (err: any) {
       setErrors({ form: err?.message || "Failed to save." });
     } finally {
       setSaving(false);
     }
+
   };
 
   const FieldError = ({ name }: { name: keyof Values }) =>

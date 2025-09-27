@@ -15,15 +15,30 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { db } from "./firebase";
-import { collection, getDocs, doc, deleteDoc } from "firebase/firestore";
+import { db, auth } from "./firebase";
+import {
+  collection,
+  getDocs,
+  doc,
+  getDoc,
+  updateDoc,
+  setDoc,
+  query,
+  where,
+} from "firebase/firestore";
 
 export function PatientsList() {
   const [patients, setPatients] = useState<any[]>([]);
+  const [showPopup, setShowPopup] = useState(false);
+  const [patientIdInput, setPatientIdInput] = useState("");
   const navigate = useNavigate();
 
+  const uid = auth.currentUser?.uid; // current doctor ID
+
   const fetchPatients = async () => {
-    const querySnapshot = await getDocs(collection(db, "patients"));
+    if (!uid) return;
+    const q = query(collection(db, "patients"), where("doctor", "==", uid));
+    const querySnapshot = await getDocs(q);
     const data = querySnapshot.docs.map((doc) => ({
       uid: doc.id,
       ...doc.data(),
@@ -33,17 +48,38 @@ export function PatientsList() {
 
   useEffect(() => {
     fetchPatients();
-  }, []);
+  }, [uid]);
 
-  const handleDelete = async (uid: string) => {
-    await deleteDoc(doc(db, "patients", uid));
-    setPatients((prev) => prev.filter((p) => p.uid !== uid));
+  const handleAssignPatient = async () => {
+    if (!uid || !patientIdInput) return;
+
+    const ref = doc(db, "patients", patientIdInput);
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) {
+      alert("❌ Patient not found.");
+      return;
+    }
+
+    const data = snap.data();
+    if (!data.doctor || data.doctor === null) {
+      // assign doctor if unassigned
+      await updateDoc(ref, { doctor: uid });
+      alert("✅ Patient assigned!");
+      fetchPatients();
+    } else {
+      alert("⚠️ Patient already assigned to a doctor.");
+    }
+
+    setShowPopup(false);
+    setPatientIdInput("");
   };
 
   return (
     <Card className="w-4/5 mx-auto p-4">
-      <CardHeader>
-        <CardTitle>A list of all your current patients.</CardTitle>
+      <CardHeader className="flex justify-between items-center">
+        <CardTitle>Your Patients</CardTitle>
+        <Button onClick={() => setShowPopup(true)}>+ Add Patient</Button>
       </CardHeader>
       <CardContent>
         <Table>
@@ -52,7 +88,6 @@ export function PatientsList() {
               <TableHead className="w-1/5">Patient ID</TableHead>
               <TableHead className="w-2/5">Name</TableHead>
               <TableHead className="w-2/5">Email</TableHead>
-              <TableHead className="text-right">Remove</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -67,22 +102,33 @@ export function PatientsList() {
                   {patient.firstName} {patient.lastName}
                 </TableCell>
                 <TableCell>{patient.email}</TableCell>
-                <TableCell className="text-right">
-                  <Button
-                    variant="destructive"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(patient.uid);
-                    }}
-                  >
-                    X
-                  </Button>
-                </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </CardContent>
+
+      {/* Popup modal */}
+      {showPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg shadow-lg">
+            <h2 className="text-lg font-bold mb-4">Assign Patient</h2>
+            <input
+              type="text"
+              value={patientIdInput}
+              onChange={(e) => setPatientIdInput(e.target.value)}
+              placeholder="Enter patient ID"
+              className="border p-2 w-full mb-4"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setShowPopup(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleAssignPatient}>Assign</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }
