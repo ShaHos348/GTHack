@@ -14,7 +14,7 @@ const PatientTests = () => {
       <Card className="w-full max-w-4xl">
         <CardHeader>
           <CardTitle className="font-bold">Patient Test</CardTitle>
-          <CardDescription>Upload and see past </CardDescription>
+          <CardDescription>Upload New and See Past Tests</CardDescription>
         </CardHeader>
 
         <CardContent>

@@ -15,7 +15,7 @@ export default function Navigation() {
   const [activeTab, setActiveTab] = React.useState("patient-questionnaire");
 
   return (
-    <div className="flex flex-col align-middle bg-transparent items-center py-30">
+    <div className="flex flex-col align-middle bg-transparent items-center">
       <NavigationMenu viewport={false}>
         <NavigationMenuList>
           <NavigationMenuItem>

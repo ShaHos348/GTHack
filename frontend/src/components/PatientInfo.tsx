@@ -50,11 +50,11 @@ export default function PatientInfo() {
           <NavigationMenuItem>
             <NavigationMenuTrigger
               className={`w-full text-white rounded-full hover:bg-blue-500 ${
-                activeTab === "patient-questionaire-results"
+                activeTab === "patient-questionnaire-results"
                   ? "bg-blue-700"
                   : "bg-blue-900"
               }`}
-              onClick={() => handleTabChange("patient-questionaire-results")}
+              onClick={() => handleTabChange("patient-questionnaire-results")}
             >
               Questionnaire Results
             </NavigationMenuTrigger>
@@ -95,8 +95,8 @@ export default function PatientInfo() {
         }`}
       >
         {activeTab === "patient-history" && <PatientHistory />}
-        {activeTab === "patient-questionaire-results" && (
-          <div>To be done: patient-questionaire-results</div>
+        {activeTab === "patient-questionnaire-results" && (
+          <div>To be done: patient-questionnaire-results</div>
         )}
         {activeTab === "patient-test-reports" && (
           <div>To be done: patient-test-reports</div>
