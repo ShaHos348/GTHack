@@ -41,6 +41,14 @@ const StorageTest: React.FC = () => {
   const [role, setRoleState] = useState<UserRole | null>(null);
   const [showRoleModal, setShowRoleModal] = useState(false);
 
+  const ROUTES: Record<UserRole, string> = {
+    patient: "/navigation",       // or "/patientdashboard" if you prefer
+    doctor: "/doctordashboard",
+  };
+  const routeForRole = (r: UserRole | null | undefined) =>
+    r && ROUTES[r] ? ROUTES[r] : null;
+
+
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u);
@@ -68,16 +76,33 @@ const StorageTest: React.FC = () => {
   }, []);
 
   const handleEmailSignIn = async () => {
-    setStatus("Signing in…");
-    try {
-      await signInWithEmail(email.trim(), password);
-      setStatus("✅ Signed in");
-      navigate("/patientdashboard");
-    } catch (err: any) {
-      console.error(err);
-      setStatus(`❌ Sign-in failed: ${err.code || err.message}`);
+  setStatus("Signing in…");
+  try {
+    await signInWithEmail(email.trim(), password);
+    const u = auth.currentUser;
+    if (!u) {
+      setStatus("❌ Sign-in failed: no user.");
+      return;
     }
-  };
+
+    // fetch stored role
+    const r = await getUserRole(u.uid);
+
+    // if role exists → route; otherwise show the modal to set a role
+    const dest = routeForRole(r);
+    if (dest) {
+      setStatus("✅ Signed in");
+      navigate(dest);
+    } else {
+      setStatus("✅ Signed in — choose your role");
+      setShowRoleModal(true);
+    }
+  } catch (err: any) {
+    console.error(err);
+    setStatus(`❌ Sign-in failed: ${err.code || err.message}`);
+  }
+};
+
 
   const handleEmailSignUp = async () => {
     setStatus("Creating account…");
