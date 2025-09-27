@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { auth, db } from "./firebase";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import {
   Card,
   CardContent,
@@ -28,7 +28,6 @@ const questionList = [
   "Have you recently started any new medications or supplements?",
 ];
 
-// Type for question + answer
 type QuestionAnswer = {
   question: string;
   answer: string;
@@ -41,53 +40,20 @@ const PatientQuestionnaire: React.FC = () => {
   const [qaList, setQaList] = useState<QuestionAnswer[]>(
     questionList.map((q) => ({ question: q, answer: "" }))
   );
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState<string>("");
 
   // Use auth.currentUser if patientId is not provided
   const uid = patientId || auth.currentUser?.uid || null;
 
-  // Load existing answers from the new collection
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      if (!uid) {
-        setBanner("Please sign in to view or edit the questionnaire.");
-        setLoading(false);
-        return;
-      }
-      try {
-        const snap = await getDoc(doc(db, "questionnaires", uid));
-        if (mounted && snap.exists()) {
-          const data = snap.data();
-          if (data?.answers) {
-            setQaList(
-              questionList.map((q) => ({
-                question: q,
-                answer: data.answers[q] || "",
-              }))
-            );
-          }
-        }
-      } catch (err: any) {
-        if (mounted) setBanner(`Failed to load: ${err.message || err.code}`);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
+  const handleChange =
+    (index: number) => (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setQaList((prev) => {
+        const next = [...prev];
+        next[index].answer = e.target.value;
+        return next;
+      });
     };
-  }, [uid]);
-
-  const handleChange = (index: number) => (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setQaList((prev) => {
-      const next = [...prev];
-      next[index].answer = e.target.value;
-      return next;
-    });
-  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -120,14 +86,6 @@ const PatientQuestionnaire: React.FC = () => {
       setSaving(false);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[40vh]">
-        <p>Loading…</p>
-      </div>
-    );
-  }
 
   return (
     <div className="flex items-center justify-center py-8">

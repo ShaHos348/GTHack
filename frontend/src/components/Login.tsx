@@ -42,7 +42,7 @@ const StorageTest: React.FC = () => {
   const [showRoleModal, setShowRoleModal] = useState(false);
 
   const ROUTES: Record<UserRole, string> = {
-    patient: "/navigation",       // or "/patientdashboard" if you prefer
+    patient: "/patientdashboard",
     doctor: "/doctordashboard",
   };
   const routeForRole = (r: UserRole | null | undefined) =>
