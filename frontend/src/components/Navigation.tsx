@@ -34,8 +34,16 @@ export default function Navigation() {
           </NavigationMenuItem>
 
           <NavigationMenuItem>
-            <NavigationMenuTrigger onClick={() => setActiveTab("about")}>
-              About
+            <NavigationMenuTrigger
+              onClick={() => setActiveTab("patient-tests")}
+            >
+              Test Reports
+            </NavigationMenuTrigger>
+          </NavigationMenuItem>
+
+          <NavigationMenuItem>
+            <NavigationMenuTrigger onClick={() => setActiveTab("signout")}>
+              Sign Out
             </NavigationMenuTrigger>
           </NavigationMenuItem>
         </NavigationMenuList>
@@ -45,7 +53,8 @@ export default function Navigation() {
       <div className="flex-1 w-3/4 bg-red-600">
         {activeTab === "patient-questionaire" && <PatientQuestionaire />}
         {activeTab === "patient-history" && <PatientHistory />}
-        {activeTab === "about" && <div>About Us</div>}
+        {activeTab === "patient-tests" && <div>To be done</div>}
+        {activeTab === "signout" && <div>To be done</div>}
       </div>
     </div>
   );

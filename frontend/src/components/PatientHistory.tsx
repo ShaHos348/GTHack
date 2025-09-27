@@ -98,7 +98,11 @@ const PatientHistory: React.FC = () => {
 
   const update =
     (key: keyof Values) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    (
+      e: React.ChangeEvent<
+        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+      >
+    ) => {
       setValues((v) => ({ ...v, [key]: e.target.value }));
     };
 
@@ -114,10 +118,6 @@ const PatientHistory: React.FC = () => {
       "emergencyName",
       "relationship",
       "emergencyPhone",
-      "insurance",
-      "currentMedications",
-      "allergies",
-      "pastSurgeries",
     ];
     const next: Errors = {};
     for (const k of req) if (!v[k]) next[k] = "This field is required.";
@@ -156,7 +156,9 @@ const PatientHistory: React.FC = () => {
   };
 
   const FieldError = ({ name }: { name: keyof Values }) =>
-    errors[name] ? <p className="text-sm text-red-600 mt-1">{errors[name]}</p> : null;
+    errors[name] ? (
+      <p className="text-sm text-red-600 mt-1">{errors[name]}</p>
+    ) : null;
 
   if (loading) {
     return (
@@ -176,11 +178,15 @@ const PatientHistory: React.FC = () => {
 
         <CardContent>
           {banner && (
-            <div className="mb-4 rounded-md border p-3 text-sm"
-                 style={{
-                   borderColor: banner.startsWith("✅") ? "#22c55e33" : "#ef444433",
-                   background: banner.startsWith("✅") ? "#22c55e11" : "#ef444411",
-                 }}>
+            <div
+              className="mb-4 rounded-md border p-3 text-sm"
+              style={{
+                borderColor: banner.startsWith("✅")
+                  ? "#22c55e33"
+                  : "#ef444433",
+                background: banner.startsWith("✅") ? "#22c55e11" : "#ef444411",
+              }}
+            >
               {banner}
             </div>
           )}
@@ -195,12 +201,20 @@ const PatientHistory: React.FC = () => {
               <div className="flex gap-x-4">
                 <div className="flex-1 space-y-2">
                   <Label htmlFor="first-name">First name</Label>
-                  <Input id="first-name" value={values.firstName} onChange={update("firstName")} />
+                  <Input
+                    id="first-name"
+                    value={values.firstName}
+                    onChange={update("firstName")}
+                  />
                   <FieldError name="firstName" />
                 </div>
                 <div className="flex-1 space-y-2">
                   <Label htmlFor="last-name">Last name</Label>
-                  <Input id="last-name" value={values.lastName} onChange={update("lastName")} />
+                  <Input
+                    id="last-name"
+                    value={values.lastName}
+                    onChange={update("lastName")}
+                  />
                   <FieldError name="lastName" />
                 </div>
                 <div className="flex-1 space-y-2">
@@ -219,12 +233,21 @@ const PatientHistory: React.FC = () => {
               <div className="flex gap-x-4">
                 <div className="flex-1 space-y-2">
                   <Label htmlFor="phone">Phone (999-999-9999)</Label>
-                  <Input id="phone" value={values.phone} onChange={update("phone")} />
+                  <Input
+                    id="phone"
+                    value={values.phone}
+                    onChange={update("phone")}
+                  />
                   <FieldError name="phone" />
                 </div>
                 <div className="flex-1 space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" value={values.email} onChange={update("email")} />
+                  <Input
+                    id="email"
+                    type="email"
+                    value={values.email}
+                    onChange={update("email")}
+                  />
                   <FieldError name="email" />
                 </div>
               </div>
@@ -232,7 +255,11 @@ const PatientHistory: React.FC = () => {
               <div className="flex gap-x-4">
                 <div className="flex-[70%] space-y-2">
                   <Label htmlFor="address">Address</Label>
-                  <Input id="address" value={values.address} onChange={update("address")} />
+                  <Input
+                    id="address"
+                    value={values.address}
+                    onChange={update("address")}
+                  />
                   <FieldError name="address" />
                 </div>
                 <div className="flex-[30%] space-y-2">
@@ -254,24 +281,40 @@ const PatientHistory: React.FC = () => {
               <div className="flex gap-x-4">
                 <div className="flex-1 space-y-2">
                   <Label htmlFor="emergency-name">Emergency contact</Label>
-                  <Input id="emergency-name" value={values.emergencyName} onChange={update("emergencyName")} />
+                  <Input
+                    id="emergency-name"
+                    value={values.emergencyName}
+                    onChange={update("emergencyName")}
+                  />
                   <FieldError name="emergencyName" />
                 </div>
                 <div className="flex-1 space-y-2">
-                <Label htmlFor="relationship">Relationship</Label>
-                  <Input id="relationship" value={values.relationship} onChange={update("relationship")} />
+                  <Label htmlFor="relationship">Relationship</Label>
+                  <Input
+                    id="relationship"
+                    value={values.relationship}
+                    onChange={update("relationship")}
+                  />
                   <FieldError name="relationship" />
                 </div>
                 <div className="flex-1 space-y-2">
                   <Label htmlFor="emergency-phone">Emergency phone</Label>
-                  <Input id="emergency-phone" value={values.emergencyPhone} onChange={update("emergencyPhone")} />
+                  <Input
+                    id="emergency-phone"
+                    value={values.emergencyPhone}
+                    onChange={update("emergencyPhone")}
+                  />
                   <FieldError name="emergencyPhone" />
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="insurance">Insurance + policy number</Label>
-                <Input id="insurance" value={values.insurance} onChange={update("insurance")} />
+                <Input
+                  id="insurance"
+                  value={values.insurance}
+                  onChange={update("insurance")}
+                />
               </div>
 
               <div className="space-y-2">
@@ -297,7 +340,9 @@ const PatientHistory: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="past-surgeries">Past surgeries/procedures</Label>
+                <Label htmlFor="past-surgeries">
+                  Past surgeries/procedures
+                </Label>
                 <textarea
                   id="past-surgeries"
                   value={values.pastSurgeries}
