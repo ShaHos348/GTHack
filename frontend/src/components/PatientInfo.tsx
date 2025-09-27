@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   NavigationMenu,
   NavigationMenuList,
@@ -9,8 +10,10 @@ import PHDoctorView from "./PHDoctorView";
 import { useEffect, useMemo, useState } from "react";
 import { auth, db } from "./firebase";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { logout } from "./firebase";
 
 export default function PatientInfo() {
+  const navigate = useNavigate();
   const pid = React.useMemo(() => {
     const parts = window.location.pathname.split("/");
     return parts[parts.length - 1]; // this is the UID
@@ -19,6 +22,8 @@ export default function PatientInfo() {
   const uid = useMemo(() => auth.currentUser?.uid ?? null, [auth.currentUser]);
 
   const [activeTab, setActiveTab] = React.useState("patient-history");
+  const [confirmSignout, setConfirmSignout] = React.useState(false);
+  const [displayedTab, setDisplayedTab] = React.useState(activeTab);
   const [fade, setFade] = React.useState(true);
   const [patientFound, setPatientFound] = useState(false);
   const [banner, setBanner] = useState<string>("");
@@ -62,7 +67,14 @@ export default function PatientInfo() {
     return () => {
       mounted = false;
     };
-  }, [pid]);
+  }, [pid]);  const handleSignout = async () => {
+    try {
+      await logout();
+      navigate("/");
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
 
   return (
     <div className="flex flex-col items-center bg-transparent py-30">
@@ -120,8 +132,40 @@ export default function PatientInfo() {
               Prescriptions
             </NavigationMenuTrigger>
           </NavigationMenuItem>
+          <NavigationMenuItem>
+            <NavigationMenuTrigger
+              className={`w-full text-white rounded-full hover:bg-blue-500 ${
+                activeTab === "sign-out" ? "bg-blue-700" : "bg-blue-900"
+              }`}
+              onClick={() => setConfirmSignout(true)}
+            >
+              Sign Out
+            </NavigationMenuTrigger>
+          </NavigationMenuItem>
         </NavigationMenuList>
       </NavigationMenu>
+      {confirmSignout && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-80">
+            <h2 className="text-lg font-bold mb-4">Confirm Sign Out</h2>
+            <p className="mb-6">Are you sure you want to sign out?</p>
+            <div className="flex justify-end gap-4">
+              <button
+                onClick={() => setConfirmSignout(false)}
+                className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSignout}
+                className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
+              >
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Dynamic content area */}
       {!patientFound ? (
