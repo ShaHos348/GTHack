@@ -98,7 +98,7 @@ const PatientHistory = () => {
                 </div>
                 <div className="flex-1 flex flex-col gap-2">
                   <Label htmlFor="emergency-phone">
-                    Enter contact phone number:
+                    Enter emergency contact phone number:
                   </Label>
                   <Input id="emergency-phone" type="tel" required />
                 </div>

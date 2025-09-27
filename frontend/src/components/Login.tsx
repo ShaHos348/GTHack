@@ -12,7 +12,22 @@ import {
   type UserRole,
 } from "./firebase";
 
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Link, useNavigate } from "react-router-dom";
+
 const StorageTest: React.FC = () => {
+  const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
   const [status, setStatus] = useState<string>("Not signed in.");
   const [file, setFile] = useState<File | null>(null);
@@ -57,6 +72,7 @@ const StorageTest: React.FC = () => {
     try {
       await signInWithEmail(email.trim(), password);
       setStatus("✅ Signed in");
+      navigate("/patientdashboard");
     } catch (err: any) {
       console.error(err);
       setStatus(`❌ Sign-in failed: ${err.code || err.message}`);
@@ -103,65 +119,84 @@ const StorageTest: React.FC = () => {
       setFile(null);
     } catch (err: any) {
       console.error(err);
-      setStatus(`❌ Upload failed: ${err?.code || err?.message || String(err)}`);
+      setStatus(
+        `❌ Upload failed: ${err?.code || err?.message || String(err)}`
+      );
     }
   };
 
   return (
-    <div style={{ fontFamily: "system-ui", padding: "1rem", maxWidth: 640, margin: "0 auto" }}>
-      <h2>Login + Role + Upload</h2>
-      <p style={{ marginBottom: 12 }}>{status}</p>
-
-      {!user ? (
-        <>
-          {/* Email/Password auth */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-            <input
-              type="email"
-              placeholder="email@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={{ flex: 1, padding: 6 }}
-            />
-            <input
-              type="password"
-              placeholder="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              style={{ flex: 1, padding: 6 }}
-            />
-          </div>
-          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-            <button onClick={handleEmailSignIn} disabled={!email || !password}>Sign in</button>
-            <button onClick={handleEmailSignUp} disabled={!email || !password}>Sign up</button>
-            <button onClick={signInWithGoogle}>Sign in with Google</button>
-          </div>
-        </>
-      ) : (
-        <>
-          <div style={{ marginBottom: 8 }}>
-            <strong>Role:</strong> {role ?? "(not set)"}{" "}
-            {role && <span style={{ opacity: 0.7 }}>(stored in Firestore)</span>}
-          </div>
-
-          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-            <input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-            <button onClick={handleUpload} disabled={!file}>Upload File</button>
-            <button onClick={logout}>Sign out</button>
-          </div>
-
-          {downloadUrl && (
-            <div>
-              <strong>File URL:</strong>{" "}
-              <a href={downloadUrl} target="_blank" rel="noreferrer">
-                {downloadUrl}
-              </a>
+    <div className="flex items-center justify-center min-h-screen py-14">
+      <Card className="w-full max-w-sm">
+        <CardHeader>
+          <CardTitle>Login to your account</CardTitle>
+          <CardDescription>
+            Enter your email below to login to your account
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form>
+            <div className="flex flex-col gap-6">
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="m@example.com"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <div className="flex items-center">
+                  <Label htmlFor="password">Password</Label>
+                  <a
+                    href="#"
+                    className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
+                  >
+                    Forgot your password?
+                  </a>
+                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  placeholder="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
             </div>
-          )}
-        </>
-      )}
+          </form>
+        </CardContent>
+        <CardFooter className="flex-col gap-2">
+          <Button
+            type="submit"
+            className="w-full"
+            onClick={handleEmailSignIn}
+            disabled={!email || !password}
+          >
+            Login
+          </Button>
+          <Button
+            type="submit"
+            className="w-full"
+            onClick={handleEmailSignUp}
+            disabled={!email || !password}
+          >
+            Sign Up
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={signInWithGoogle}
+          >
+            Login with Google
+          </Button>
+        </CardFooter>
+      </Card>
 
-      {/* Simple role modal */}
       {showRoleModal && user && (
         <div
           role="dialog"
@@ -176,21 +211,120 @@ const StorageTest: React.FC = () => {
             zIndex: 50,
           }}
         >
-          <div style={{ background: "#fff", padding: 16, borderRadius: 8, width: 360 }}>
+          <div
+            style={{
+              background: "#fff",
+              padding: 16,
+              borderRadius: 8,
+              width: 360,
+            }}
+          >
             <h3 style={{ marginTop: 0 }}>Choose your role</h3>
             <p>This will be tied to your account.</p>
             <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              <button onClick={() => handleChooseRole("patient")} style={{ flex: 1 }}>
+              <Link
+                to={"patienthistory"}
+                onClick={() => handleChooseRole("patient")}
+                style={{ flex: 1 }}
+              >
                 Patient
-              </button>
-              <button onClick={() => handleChooseRole("doctor")} style={{ flex: 1 }}>
+              </Link>
+              <Link
+                to="doctordashboard"
+                onClick={() => handleChooseRole("doctor")}
+                style={{ flex: 1 }}
+              >
                 Doctor
-              </button>
+              </Link>
             </div>
           </div>
         </div>
       )}
     </div>
+
+    // <div style={{ fontFamily: "system-ui", padding: "1rem", maxWidth: 640, margin: "0 auto" }}>
+    //   <h2>Login + Role + Upload</h2>
+    //   <p style={{ marginBottom: 12 }}>{status}</p>
+
+    //   {!user ? (
+    //     <>
+    //       {/* Email/Password auth */}
+    //       <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+    //         <input
+    //           type="email"
+    //           placeholder="email@example.com"
+    //           value={email}
+    //           onChange={(e) => setEmail(e.target.value)}
+    //           style={{ flex: 1, padding: 6 }}
+    //         />
+    //         <input
+    //           type="password"
+    //           placeholder="password"
+    //           value={password}
+    //           onChange={(e) => setPassword(e.target.value)}
+    //           style={{ flex: 1, padding: 6 }}
+    //         />
+    //       </div>
+    //       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+    //         <button onClick={handleEmailSignIn} disabled={!email || !password}>Sign in</button>
+    //         <button onClick={handleEmailSignUp} disabled={!email || !password}>Sign up</button>
+    //         <button onClick={signInWithGoogle}>Sign in with Google</button>
+    //       </div>
+    //     </>
+    //   ) : (
+    //     <>
+    //       <div style={{ marginBottom: 8 }}>
+    //         <strong>Role:</strong> {role ?? "(not set)"}{" "}
+    //         {role && <span style={{ opacity: 0.7 }}>(stored in Firestore)</span>}
+    //       </div>
+
+    //       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+    //         <input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+    //         <button onClick={handleUpload} disabled={!file}>Upload File</button>
+    //         <button onClick={logout}>Sign out</button>
+    //       </div>
+
+    //       {downloadUrl && (
+    //         <div>
+    //           <strong>File URL:</strong>{" "}
+    //           <a href={downloadUrl} target="_blank" rel="noreferrer">
+    //             {downloadUrl}
+    //           </a>
+    //         </div>
+    //       )}
+    //     </>
+    //   )}
+
+    //   {/* Simple role modal */}
+    //   {showRoleModal && user && (
+    //     <div
+    //       role="dialog"
+    //       aria-modal="true"
+    //       style={{
+    //         position: "fixed",
+    //         inset: 0,
+    //         background: "rgba(0,0,0,.5)",
+    //         display: "flex",
+    //         alignItems: "center",
+    //         justifyContent: "center",
+    //         zIndex: 50,
+    //       }}
+    //     >
+    //       <div style={{ background: "#fff", padding: 16, borderRadius: 8, width: 360 }}>
+    //         <h3 style={{ marginTop: 0 }}>Choose your role</h3>
+    //         <p>This will be tied to your account.</p>
+    //         <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+    //           <button onClick={() => handleChooseRole("patient")} style={{ flex: 1 }}>
+    //             Patient
+    //           </button>
+    //           <button onClick={() => handleChooseRole("doctor")} style={{ flex: 1 }}>
+    //             Doctor
+    //           </button>
+    //         </div>
+    //       </div>
+    //     </div>
+    //   )}
+    // </div>
   );
 };
 
