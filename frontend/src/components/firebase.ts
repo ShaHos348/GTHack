@@ -7,6 +7,8 @@ import {
   signOut,
   onAuthStateChanged,
   type Auth,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword
 } from "firebase/auth";
 import {
   getStorage,
@@ -103,6 +105,13 @@ export async function fetchUserFiles(uid: string): Promise<UserFile[]> {
       url: await getDownloadURL(itemRef),
     }))
   );
+}
+
+export function signUpWithEmail(email: string, password: string) {
+  return createUserWithEmailAndPassword(auth, email, password);
+}
+export function signInWithEmail(email: string, password: string) {
+  return signInWithEmailAndPassword(auth, email, password);
 }
 
 // ---- Re-exports for convenience (so callers import only from this file) ----
