@@ -3,10 +3,7 @@ import { PatientsList } from "../components/PatientsList";
 
 function DoctorDashboard() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-start">
-      <div className=" text-3xl text-amber-200">
-        <Link to="/">Go to App</Link>
-      </div>
+    <div className="min-h-screen flex flex-col items-center justify-start pt-12">
       <PatientsList />
     </div>
   );

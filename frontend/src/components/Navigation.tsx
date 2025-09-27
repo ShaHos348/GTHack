@@ -17,8 +17,19 @@ import { useNavigate } from "react-router-dom";
 export default function Navigation() {
   const [activeTab, setActiveTab] = React.useState("patient-questionnaire");
   const [confirmSignout, setConfirmSignout] = React.useState(false);
+  const [displayedTab, setDisplayedTab] = React.useState(activeTab);
   const navigate = useNavigate();
 
+  const [fade, setFade] = React.useState(true);
+
+  const handleTabChange = (tab: string) => {
+    setFade(false); // start fade out
+    setTimeout(() => {
+      setDisplayedTab(tab); // swap component
+      setFade(true); // fade in
+      setActiveTab(tab);
+    }, 200); // duration matches CSS fade
+  };
   const handleSignout = async () => {
     try {
       await logout();
@@ -30,11 +41,16 @@ export default function Navigation() {
 
   return (
     <div className="flex flex-col align-middle bg-transparent items-center">
-      <NavigationMenu viewport={false}>
+      <NavigationMenu
+        viewport={false}
+        className="bg-card text-card-foreground shadow-sm sticky top-4 z-50 mx-auto w-3/4 border-gray-200 border w-md rounded-full flex items-center justify-center px-4 py-3"
+      >
         <NavigationMenuList>
           <NavigationMenuItem>
             <NavigationMenuTrigger
-              onClick={() => setActiveTab("patient-questionnaire")}
+              className={`w-full font-semibold rounded-full transition-colors bg-transparent "
+  ${activeTab === "patient-questionnaire" ? "text-primary " : "text-black"}`}
+              onClick={() => handleTabChange("patient-questionnaire")}
             >
               Patient Questionnaire
             </NavigationMenuTrigger>
@@ -42,7 +58,9 @@ export default function Navigation() {
 
           <NavigationMenuItem>
             <NavigationMenuTrigger
-              onClick={() => setActiveTab("patient-history")}
+              className={`w-full font-semibold rounded-full transition-colors bg-transparent "
+  ${activeTab === "patient-history" ? "text-primary " : "text-black"}`}
+              onClick={() => handleTabChange("patient-history")}
             >
               Patient History
             </NavigationMenuTrigger>
@@ -50,7 +68,9 @@ export default function Navigation() {
 
           <NavigationMenuItem>
             <NavigationMenuTrigger
-              onClick={() => setActiveTab("patient-tests")}
+              className={`w-full font-semibold rounded-full transition-colors bg-transparent "
+  ${activeTab === "patient-tests" ? "text-primary " : "text-black"}`}
+              onClick={() => handleTabChange("patient-tests")}
             >
               Test Reports
             </NavigationMenuTrigger>
@@ -58,14 +78,20 @@ export default function Navigation() {
 
           <NavigationMenuItem>
             <NavigationMenuTrigger
-              onClick={() => setActiveTab("dynamic-questionnaire")}
+              className={`w-full font-semibold rounded-full transition-colors bg-transparent "
+  ${activeTab === "dynamic-questionnaire" ? "text-primary " : "text-black"}`}
+              onClick={() => handleTabChange("dynamic-questionnaire")}
             >
               Dynamic Questionnaire
             </NavigationMenuTrigger>
           </NavigationMenuItem>
 
           <NavigationMenuItem>
-            <NavigationMenuTrigger onClick={() => setConfirmSignout(true)}>
+            <NavigationMenuTrigger
+              className={`w-full font-semibold rounded-full transition-colors bg-transparent "
+  ${activeTab === "sign-out" ? "text-primary " : "text-black"}`}
+              onClick={() => setConfirmSignout(true)}
+            >
               Sign Out
             </NavigationMenuTrigger>
           </NavigationMenuItem>
@@ -95,7 +121,11 @@ export default function Navigation() {
         </div>
       )}
 
-      <div className="flex-1 w-3/4 bg-red-600">
+      <div
+        className={`flex-1 w-3/4 transition-opacity duration-200 ${
+          fade ? "opacity-100" : "opacity-0"
+        }`}
+      >
         {activeTab === "patient-questionnaire" && <PatientQuestionnaire />}
         {activeTab === "patient-history" && <PatientHistory />}
         {activeTab === "patient-tests" && <PatientTests />}

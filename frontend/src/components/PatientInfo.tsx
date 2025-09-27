@@ -80,14 +80,13 @@ export default function PatientInfo() {
     <div className="flex flex-col items-center bg-transparent py-30">
       <NavigationMenu
         viewport={false}
-        className="sticky top-4 z-50 mx-auto w-3/4 bg-blue-900 shadow-md rounded-full flex items-center justify-center px-4 py-3"
+        className="bg-card text-card-foreground shadow-sm sticky top-4 z-50 mx-auto w-3/4 border-gray-200 border w-md rounded-full flex items-center justify-center px-4 py-3"
       >
         <NavigationMenuList>
           <NavigationMenuItem>
             <NavigationMenuTrigger
-              className={`w-full text-white rounded-full hover:bg-blue-500 ${
-                activeTab === "patient-history" ? "bg-blue-700" : "bg-blue-900"
-              }`}
+              className={`w-full font-semibold rounded-full transition-colors bg-transparent "
+  ${activeTab === "patient-history" ? "text-primary " : "text-black"}`}
               onClick={() => handleTabChange("patient-history")}
             >
               Patient History
@@ -96,11 +95,12 @@ export default function PatientInfo() {
 
           <NavigationMenuItem>
             <NavigationMenuTrigger
-              className={`w-full text-white rounded-full hover:bg-blue-500 ${
-                activeTab === "patient-questionnaire-results"
-                  ? "bg-blue-700"
-                  : "bg-blue-900"
-              }`}
+              className={`w-full font-semibold rounded-full transition-colors bg-transparent "
+  ${
+    activeTab === "patient-questionnaire-results"
+      ? "text-primary "
+      : "text-black"
+  }`}
               onClick={() => handleTabChange("patient-questionnaire-results")}
             >
               Questionnaire Results
@@ -109,11 +109,8 @@ export default function PatientInfo() {
 
           <NavigationMenuItem>
             <NavigationMenuTrigger
-              className={`w-full text-white rounded-full hover:bg-blue-500 ${
-                activeTab === "patient-test-reports"
-                  ? "bg-blue-700"
-                  : "bg-blue-900"
-              }`}
+              className={`w-full font-semibold rounded-full transition-colors bg-transparent "
+  ${activeTab === "patient-test-reports" ? "text-primary " : "text-black"}`}
               onClick={() => handleTabChange("patient-test-reports")}
             >
               Test Reports
@@ -122,11 +119,8 @@ export default function PatientInfo() {
 
           <NavigationMenuItem>
             <NavigationMenuTrigger
-              className={`w-full text-white rounded-full hover:bg-blue-500 ${
-                activeTab === "patient-prescriptions"
-                  ? "bg-blue-700"
-                  : "bg-blue-900"
-              }`}
+              className={`w-full font-semibold rounded-full transition-colors bg-transparent "
+  ${activeTab === "patient-prescriptions" ? "text-primary " : "text-black"}`}
               onClick={() => handleTabChange("patient-prescriptions")}
             >
               Prescriptions
@@ -134,9 +128,8 @@ export default function PatientInfo() {
           </NavigationMenuItem>
           <NavigationMenuItem>
             <NavigationMenuTrigger
-              className={`w-full text-white rounded-full hover:bg-blue-500 ${
-                activeTab === "sign-out" ? "bg-blue-700" : "bg-blue-900"
-              }`}
+              className={`w-full font-semibold rounded-full transition-colors bg-transparent "
+  ${activeTab === "sign-out" ? "text-primary " : "text-black"}`}
               onClick={() => setConfirmSignout(true)}
             >
               Sign Out
