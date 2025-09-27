@@ -10,7 +10,8 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "../components/ui/button";
+import { Button } from "./ui/button";
+import { Link } from "react-router-dom";
 
 const PatientHistory = () => {
   return (
@@ -177,9 +178,11 @@ const PatientHistory = () => {
           </form>
         </CardContent>
         <CardFooter className="flex-col gap-2">
-          <Button type="submit" className="w-full">
-            Save Patient History
-          </Button>
+          <Link to="/patientdashboard">
+            <Button type="submit" className="w-full">
+              Save Patient History
+            </Button>
+          </Link>
         </CardFooter>
       </Card>
     </div>
