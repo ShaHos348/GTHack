@@ -6,6 +6,7 @@ import App from './App';
 import Temp from './Temp';
 
 import './index.css';
+import PatientHistory from './pages/PatientHistory';
 
 const router = createBrowserRouter([
   {
@@ -21,6 +22,10 @@ const router = createBrowserRouter([
         element: <ProfilePage />,
       },
     ],*/
+  },
+  {
+    path: '/patienthistory',
+    element: <PatientHistory />,
   },
 ]);
 
