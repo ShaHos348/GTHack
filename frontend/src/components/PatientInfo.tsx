@@ -9,7 +9,7 @@ import PatientHistory from "./PatientHistory";
 import PatientQuestionnaire from "./PatientQuestionaire";
 
 export default function PatientInfo() {
-  const [activeTab, setActiveTab] = React.useState("patient-questionnaire");
+  const [activeTab, setActiveTab] = React.useState("patient-history");
   const [displayedTab, setDisplayedTab] = React.useState(activeTab);
   const [fade, setFade] = React.useState(true);
 
