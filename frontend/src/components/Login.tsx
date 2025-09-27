@@ -127,7 +127,7 @@ const StorageTest: React.FC = () => {
 
   return (
     <div className="flex items-center justify-center min-h-screen py-14">
-      <Card className="w-full max-w-sm">
+      <Card className="w-1/2">
         <CardHeader>
           <CardTitle>Login to your account</CardTitle>
           <CardDescription>
