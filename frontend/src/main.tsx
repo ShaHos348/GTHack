@@ -3,27 +3,17 @@ import ReactDOM from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 
 import App from "./App";
-import Temp from "./Temp";
 
 import "./index.css";
 import PatientHistory from "./components/PatientHistory";
 import PatientDashBoard from "./pages/PatientDashboard";
+import PatientInfo from "./components/PatientInfo";
 import DoctorDashboard from "./pages/DoctorDashboard";
 
 const router = createBrowserRouter([
   {
     path: "/",
     element: <App />,
-  },
-  {
-    path: "/temp",
-    element: <Temp />,
-    /*children: [
-      {
-        path: '/profiles/:profileId',
-        element: <ProfilePage />,
-      },
-    ],*/
   },
   {
     path: "/patienthistory",
@@ -36,6 +26,10 @@ const router = createBrowserRouter([
   {
     path: "/doctordashboard",
     element: <DoctorDashboard />,
+  },
+  {
+    path: "/patient/:patiendId",
+    element: <PatientInfo />,
   },
 ]);
 

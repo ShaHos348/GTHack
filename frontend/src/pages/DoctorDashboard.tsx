@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { PatientsList } from "../components/doctor/PatientsList";
+import { PatientsList } from "../components/PatientsList";
 
 function DoctorDashboard() {
   return (
