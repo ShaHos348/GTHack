@@ -7,8 +7,8 @@ import Temp from "./Temp";
 
 import "./index.css";
 import PatientHistory from "./components/PatientHistory";
-import Bananas from "./pages/PatientDashboard";
 import PatientDashBoard from "./pages/PatientDashboard";
+import DoctorDashboard from "./pages/DoctorDashboard";
 
 const router = createBrowserRouter([
   {
@@ -32,6 +32,10 @@ const router = createBrowserRouter([
   {
     path: "/patientdashboard",
     element: <PatientDashBoard />,
+  },
+  {
+    path: "/doctordashboard",
+    element: <DoctorDashboard />,
   },
 ]);
 
