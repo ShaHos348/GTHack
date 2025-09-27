@@ -9,6 +9,7 @@ import PatientHistory from "./components/PatientHistory";
 import PatientDashBoard from "./pages/PatientDashboard";
 import PatientInfo from "./components/PatientInfo";
 import DoctorDashboard from "./pages/DoctorDashboard";
+import Navigation from "./components/Navigation";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -38,6 +39,10 @@ const router = createBrowserRouter([
   {
     path: "/doctordashboard",
     element: <DoctorDashboard />,
+  },
+  {
+    path: "/navigation",
+    element: <Navigation />,
   },
   {
     path: "/patient/:patiendId",
