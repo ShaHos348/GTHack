@@ -163,7 +163,6 @@ const PatientHistory: React.FC = () => {
     } finally {
       setSaving(false);
     }
-
   };
 
   const FieldError = ({ name }: { name: keyof Values }) =>

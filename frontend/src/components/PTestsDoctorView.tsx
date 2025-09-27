@@ -2,20 +2,17 @@ import React, { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { auth, uploadFile, fetchUserFiles, deleteFile, type UserFile } from "./firebase";
+import { auth, fetchUserFiles, type UserFile } from "./firebase";
 
 interface PTestsProps {
   pid: string | null;
 }
 
 const PTestsDoctorView: React.FC<PTestsProps> = ({ pid }) => {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<UserFile[]>([]);
   const [fullScreenFile, setFullScreenFile] = useState<UserFile | null>(null);
   const uid = auth.currentUser?.uid || "";
@@ -36,54 +33,15 @@ const PTestsDoctorView: React.FC<PTestsProps> = ({ pid }) => {
     fetchFiles();
   }, [pid]);
 
-  const handleUpload = async () => {
-    if (!selectedFile || !pid) return;
-
-    try {
-      const url = await uploadFile(pid, selectedFile);
-      const newFile: UserFile = {
-        name: `uploads/${pid}/${Date.now()}-${selectedFile.name}`,
-        url,
-      };
-      setUploadedFiles((prev) => [newFile, ...prev]);
-      setSelectedFile(null);
-    } catch (err) {
-      console.error("Upload failed:", err);
-      alert("❌ Failed to upload file.");
-    }
-  };
-
-  const handleDelete = async (file: UserFile) => {
-    if (!pid) return;
-    try {
-      await deleteFile(pid, file.name);
-      setUploadedFiles((prev) => prev.filter((f) => f.name !== file.name));
-    } catch (err) {
-      console.error("Delete failed:", err);
-      alert("❌ Failed to delete file.");
-    }
-  };
-
   return (
     <div className="flex items-center justify-center py-8">
       <Card className="w-full max-w-5xl">
         <CardHeader>
           <CardTitle className="font-bold text-xl">Patient Test Reports</CardTitle>
-          <CardDescription>
-            Upload New Test Reports and View Past Reports
-          </CardDescription>
         </CardHeader>
 
         <CardContent>
           <div className="flex flex-col gap-4">
-            <input
-              type="file"
-              accept="image/*, .pdf"
-              onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-            />
-            <Button onClick={handleUpload} disabled={!selectedFile}>
-              Upload Test Report
-            </Button>
 
             {uploadedFiles.length > 0 && (
               <div className="mt-6">
@@ -113,9 +71,6 @@ const PTestsDoctorView: React.FC<PTestsProps> = ({ pid }) => {
                         <Button onClick={() => setFullScreenFile(file)}>
                           Full Screen
                         </Button>
-                        <Button variant="destructive" onClick={() => handleDelete(file)}>
-                          Delete
-                        </Button>
                       </div>
                     </div>
                   ))}
@@ -124,10 +79,6 @@ const PTestsDoctorView: React.FC<PTestsProps> = ({ pid }) => {
             )}
           </div>
         </CardContent>
-
-        <CardFooter>
-          <Button type="submit">Continue</Button>
-        </CardFooter>
       </Card>
 
       {/* Full screen modal */}
