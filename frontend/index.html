@@ -1,14 +1,43 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <link href="/src/style.css" rel="stylesheet">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <title>Firebase Google Login Test</title>
+</head>
+<body>
+  <h1>Sign In Test</h1>
+  <button id="login">Sign in with Google</button>
+  <button id="logout">Sign out</button>
+
+  <pre id="output">Not signed in.</pre>
+
+  <script type="module">
+    import { auth, signInWithGoogle, logOut } from "./src/firebase.js";
+    import { onAuthStateChanged } from "firebase/auth";
+
+    const loginBtn = document.getElementById("login");
+    const logoutBtn = document.getElementById("logout");
+    const output = document.getElementById("output");
+
+    loginBtn.onclick = async () => {
+      try {
+        await signInWithGoogle();
+      } catch (err) {
+        console.error("Login error:", err);
+      }
+    };
+
+    logoutBtn.onclick = async () => {
+      await logOut();
+    };
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        output.textContent = `✅ Signed in as ${user.displayName}\nUID: ${user.uid}\nEmail: ${user.email}`;
+      } else {
+        output.textContent = "Not signed in.";
+      }
+    });
+  </script>
+</body>
 </html>
