@@ -9,6 +9,8 @@ import PatientHistory from "./components/PatientHistory";
 import PatientDashBoard from "./pages/PatientDashboard";
 import PatientInfo from "./components/PatientInfo";
 import DoctorDashboard from "./pages/DoctorDashboard";
+import { AuthProvider } from "./contexts/AuthContext";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const router = createBrowserRouter([
   {
@@ -18,10 +20,20 @@ const router = createBrowserRouter([
   {
     path: "/patienthistory",
     element: <PatientHistory />,
+    // element: (
+    //   <ProtectedRoute requireRole="patient">
+    //     <PatientHistory />
+    //   </ProtectedRoute>
+    // ),
   },
   {
     path: "/patientdashboard",
     element: <PatientDashBoard />,
+    // element: (
+    //   <ProtectedRoute requireRole="patient">
+    //     <PatientDashBoard />
+    //   </ProtectedRoute>
+    // ),
   },
   {
     path: "/doctordashboard",
@@ -35,6 +47,8 @@ const router = createBrowserRouter([
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <RouterProvider router={router} />
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>
   </React.StrictMode>
 );

@@ -41,6 +41,25 @@ type FirebaseConfig = {
 export type UserFile = { name: string; url: string };
 export type UserRole = "patient" | "doctor";
 
+export type PatientHistoryData = {
+  firstName: string;
+  lastName: string;
+  birthday: string;
+  phone: string;
+  email: string;
+  address: string;
+  sex: string;
+  emergencyName: string;
+  relationship: string;
+  emergencyPhone: string;
+  insurance: string;
+  currentMedications: string;
+  allergies: string;
+  pastSurgeries: string;
+  familyHistory: string;
+  lifestyle: string;
+};
+
 // ---- Env typings (Vite) ----
 declare global {
   interface ImportMetaEnv {
@@ -102,6 +121,51 @@ export async function setUserRole(uid: string, role: UserRole) {
     { role, updatedAt: serverTimestamp(), createdAt: serverTimestamp() },
     { merge: true }
   );
+}
+
+export async function savePatientHistory(uid: string, patientData: PatientHistoryData) {
+  await setDoc(
+    doc(db, "patientHistory", uid),
+    { ...patientData, updatedAt: serverTimestamp(), createdAt: serverTimestamp() },
+    { merge: true }
+  );
+}
+
+export async function getPatientData(uid: string) {
+  try {
+    const docRef = doc(db, "patients", uid);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      // Remove Firebase metadata for cleaner output
+      const { updatedAt, createdAt, uid: docUid, ...patientData } = data;
+      void updatedAt; void createdAt; void docUid; // Acknowledge unused variables
+      return patientData;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error fetching patient data:", error);
+    return null;
+  }
+}
+
+export async function getQuestionnaireData(uid: string) {
+  try {
+    const docRef = doc(db, "questionnaires", uid);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      const { updatedAt, createdAt, uid: docUid, ...questionnaireData } = data;
+      void updatedAt; void createdAt; void docUid; // Acknowledge unused variables
+      return questionnaireData;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error fetching questionnaire data:", error);
+    return null;
+  }
 }
 
 // ---- Storage (bind explicitly to your bucket) ----

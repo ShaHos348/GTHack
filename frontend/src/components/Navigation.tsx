@@ -10,6 +10,7 @@ import {
 import PatientHistory from "./PatientHistory";
 import PatientQuestionnaire from "./PatientQuestionnaire";
 import PatientTests from "./PatientTests";
+import DynamicQuestionnaire from "./DynamicQuestionnaire";
 
 export default function Navigation() {
   const [activeTab, setActiveTab] = React.useState("patient-questionnaire");
@@ -43,6 +44,14 @@ export default function Navigation() {
           </NavigationMenuItem>
 
           <NavigationMenuItem>
+            <NavigationMenuTrigger
+              onClick={() => setActiveTab("dynamic-questionnaire")}
+            >
+              Dynamic Questionnaire
+            </NavigationMenuTrigger>
+          </NavigationMenuItem>
+
+          <NavigationMenuItem>
             <NavigationMenuTrigger onClick={() => setActiveTab("signout")}>
               Sign Out
             </NavigationMenuTrigger>
@@ -54,6 +63,7 @@ export default function Navigation() {
         {activeTab === "patient-questionnaire" && <PatientQuestionnaire />}
         {activeTab === "patient-history" && <PatientHistory />}
         {activeTab === "patient-tests" && <PatientTests />}
+        {activeTab === "dynamic-questionnaire" && <DynamicQuestionnaire />}
         {activeTab === "signout" && <div>To be done</div>}
       </div>
     </div>
