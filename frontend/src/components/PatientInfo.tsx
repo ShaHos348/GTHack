@@ -91,7 +91,7 @@ export default function PatientInfo() {
             <NavigationMenuTrigger
               className={`w-full font-semibold rounded-full transition-colors bg-transparent "
   ${activeTab === "patient-prescriptions" ? "text-primary " : "text-black"}`}
-              onClick={() => navigate("")}
+              onClick={() => navigate("/doctordashboard")}
             >
               Dashboard
             </NavigationMenuTrigger>
@@ -197,9 +197,7 @@ export default function PatientInfo() {
           {activeTab === "patient-questionnaire-results" && (
             <PQResults pid={pid} />
           )}
-          {activeTab === "patient-test-reports" && (
-            <div>To be done: patient-test-reports</div>
-          )}
+          {activeTab === "patient-test-reports" && <PTestsDoctorView pid={pid}/>}
         </div>
       )}
     </div>
