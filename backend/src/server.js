@@ -39,6 +39,40 @@ app.get("/users", async (req, res) => {
   }
 });
 
+// Get patient conversation summary
+app.get("/patient/:patientId/summary", async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const patientDoc = await db.collection('patients').doc(patientId).get();
+    
+    if (!patientDoc.exists) {
+      return res.status(404).json({ error: 'Patient not found' });
+    }
+    
+    const patientData = patientDoc.data();
+    
+    // Get all conversation summaries from subcollection
+    const summariesSnapshot = await db.collection('patients').doc(patientId)
+      .collection('conversationSummaries')
+      .orderBy('timestamp', 'desc')
+      .get();
+    
+    const summaries = summariesSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    res.json({
+      patientId,
+      latestSummary: patientData.latestConversationSummary || null,
+      lastConversationDate: patientData.lastConversationDate || null,
+      allSummaries: summaries
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Session cleanup - remove sessions older than 30 minutes
 setInterval(() => {
   const now = Date.now();
@@ -109,8 +143,7 @@ class ChatSession {
   }
 
   shouldEndSession() {
-    return this.questionCount >= 10 || 
-           this.messages.some(msg => msg.content?.includes('SUMMARY_START'));
+    return this.messages.some(msg => msg.content?.includes('SUMMARY_START'));
   }
 
   getConversationHistory() {
@@ -233,13 +266,42 @@ async function handleTextChat(req, res) {
     session.addMessage('model', replyText);
 
     // Check if session should end
-    // TODO: Store summaries in Firestore after confirmation from patient
     if (session.shouldEndSession()) {
+      console.log('🏁 Session ending, storing summary for patient:', patientId);
       const summary = replyText.includes('SUMMARY_START') 
         ? replyText.split('SUMMARY_START')[1]
         : replyText;
 
-      await db.collection('patientSummaries').doc(patientId).set({
+      console.log('📋 Summary to store:', summary.substring(0, 100) + '...');
+
+      // Store summary in the patients collection
+      const patientRef = db.collection('patients').doc(patientId);
+      
+      try {
+        // Try to update the patient document with the latest summary
+        await patientRef.update({
+          latestConversationSummary: summary,
+          lastConversationDate: admin.firestore.FieldValue.serverTimestamp(),
+          conversationHistory: session.messages,
+        });
+      } catch (error) {
+        // If patient document doesn't exist, create it with the summary
+        console.log('⚠️ Error updating patient document:', error.code, error.message);
+        if (error.code === 'not-found') {
+          console.log('📝 Creating new patient document with summary');
+          await patientRef.set({
+            latestConversationSummary: summary,
+            lastConversationDate: admin.firestore.FieldValue.serverTimestamp(),
+            conversationHistory: session.messages,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        } else {
+          throw error; // Re-throw if it's a different error
+        }
+      }
+
+      // Also store in a subcollection for historical records
+      await patientRef.collection('conversationSummaries').add({
         summary,
         conversationHistory: session.messages,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
@@ -469,7 +531,32 @@ async function handleVoiceChat(req, res) {
         ? replyText.split('SUMMARY_START')[1]
         : replyText;
 
-      await db.collection('patientSummaries').doc(patientId).set({
+      // Store summary in the patients collection
+      const patientRef = db.collection('patients').doc(patientId);
+      
+      try {
+        // Try to update the patient document with the latest summary
+        await patientRef.update({
+          latestConversationSummary: summary,
+          lastConversationDate: admin.firestore.FieldValue.serverTimestamp(),
+          conversationHistory: sessionWrapper.messages,
+        });
+      } catch (error) {
+        // If patient document doesn't exist, create it with the summary
+        if (error.code === 'not-found') {
+          await patientRef.set({
+            latestConversationSummary: summary,
+            lastConversationDate: admin.firestore.FieldValue.serverTimestamp(),
+            conversationHistory: sessionWrapper.messages,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        } else {
+          throw error; // Re-throw if it's a different error
+        }
+      }
+
+      // Also store in a subcollection for historical records
+      await patientRef.collection('conversationSummaries').add({
         summary,
         conversationHistory: sessionWrapper.messages,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),

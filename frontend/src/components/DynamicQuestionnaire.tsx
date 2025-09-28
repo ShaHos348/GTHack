@@ -55,7 +55,7 @@ Requirements:
 - Keep questions concise and easy for the patient to answer.
 - Always use second person (you/your) when asking questions, never use the patient's name.
 - Stop asking new questions when sufficient information is gathered or after 5 questions.
-- After the last question, generate a clear and concise bullet-point summary.
+- After the last question, generate a clear and concise bullet-point summary preceded by "SUMMARY_START" on a new line.
 
 Begin by asking the patient to describe their main symptoms.
 
@@ -96,8 +96,7 @@ Begin by asking the patient to describe their main symptoms.
             context += `\n- ${key}: ${value}`;
           }
         });
-      }
-      // TODO: Save Summary in Database 
+      } 
       console.log('📋 FINAL BUILT CONTEXT:');
       console.log('========================');
       console.log(context);
@@ -124,9 +123,9 @@ Your goal is to ask clear, focused, and medically logical questions to:
 
 Keep questions concise and easy for the patient to answer.
 
-Stop asking new questions when you have gathered sufficient clinical information or after 5 questions.
+Stop asking new questions when you have gathered sufficient clinical information or after 3 questions.
 
-At that point, generate a clear and concise bullet-point summary of the patient's key history points, including their main complaint, symptom details, relevant past conditions, and any important risks.
+At that point, generate a clear and concise bullet-point summary of the patient's key history points, including their main complaint, symptom details, relevant past conditions, and any important risks. Precede the summary with "SUMMARY_START" on a new line.
 
 
 Begin by asking the patient to describe their main symptoms and how these affect their daily life right now.`;
@@ -299,12 +298,24 @@ Begin by asking the patient to describe their main symptoms and how these affect
       if (!sessionId) setSessionId(data.sessionId);
       
       if (data.endSession) {
-        alert('Session completed! Your responses have been saved for the doctor to review.');
+        // Extract summary from the AI's response if it contains SUMMARY_START
+        const summary = data.reply?.includes('SUMMARY_START') 
+          ? data.reply.split('SUMMARY_START')[1]
+          : null;
+        
+        if (summary) {
+          setMessages(prev => [...prev, { 
+            from: 'ai', 
+            text: `📋 **CONVERSATION SUMMARY**\n\n${summary}\n\n✅ This summary has been saved to your patient record and will be reviewed by your healthcare provider.` 
+          }]);
+        }
+        
         setSessionId(null);
-        setMessages(prev => [...prev, { 
-          from: 'ai', 
-          text: 'Thank you for completing the questionnaire. Your doctor will review your responses.' 
-        }]);
+        
+        // Show completion message after a brief delay
+        setTimeout(() => {
+          alert('Session completed! Your conversation summary has been saved for your doctor to review.');
+        }, 1000);
       }
 
     } catch (err) {

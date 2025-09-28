@@ -186,6 +186,7 @@ export default function PatientInfo() {
           {activeTab === "patient-prescriptions" && (
             <div>To be done: patient-prescriptions</div>
           )}
+          {activeTab === "conversation-summaries" && <ConversationSummaries patientId={pid} />}
         </div>
       )}
     </div>
