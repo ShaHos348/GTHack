@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/navigation-menu";
 import PHDoctorView from "./PHDoctorView";
 import PQResults from "./PQResults";
+import PTestsDoctorView from "./PTestsDoctorView";
 import { useEffect, useMemo, useState } from "react";
 import { auth, db } from "./firebase";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";

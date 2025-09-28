@@ -156,10 +156,8 @@ export async function getQuestionnaireData(uid: string) {
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
-      const data = docSnap.data();
-      const { updatedAt, createdAt, uid: docUid, ...questionnaireData } = data;
-      void updatedAt; void createdAt; void docUid; // Acknowledge unused variables
-      return questionnaireData;
+      // ✅ Return the nested 'answers' object directly
+      return docSnap.data().answers || null; 
     }
     return null;
   } catch (error) {

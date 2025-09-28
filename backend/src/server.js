@@ -5,6 +5,8 @@ const express = require('express');
 const admin = require('firebase-admin');
 const { GoogleGenAI, Modality, MediaResolution } = require('@google/genai');
 const cors = require('cors');
+const ffmpeg = require('fluent-ffmpeg');
+const { Writable, PassThrough } = require('stream');
 
 admin.initializeApp({
   credential: admin.credential.cert(require('../serviceKey.json')),
@@ -20,7 +22,8 @@ const sessions = new Map();
 
 const app = express();
 app.use(cors({ origin: true }));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' })); // Increased limit for audio data
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 app.get("/", async (req, res) => {
   res.send("✅ Server with Firebase is working!");
@@ -31,6 +34,40 @@ app.get("/users", async (req, res) => {
     const snapshot = await admin.firestore().collection("users").get();
     const users = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get patient conversation summary
+app.get("/patient/:patientId/summary", async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const patientDoc = await db.collection('patients').doc(patientId).get();
+    
+    if (!patientDoc.exists) {
+      return res.status(404).json({ error: 'Patient not found' });
+    }
+    
+    const patientData = patientDoc.data();
+    
+    // Get all conversation summaries from subcollection
+    const summariesSnapshot = await db.collection('patients').doc(patientId)
+      .collection('conversationSummaries')
+      .orderBy('timestamp', 'desc')
+      .get();
+    
+    const summaries = summariesSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    res.json({
+      patientId,
+      latestSummary: patientData.latestConversationSummary || null,
+      lastConversationDate: patientData.lastConversationDate || null,
+      allSummaries: summaries
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -94,6 +131,7 @@ class ChatSession {
     this.questionCount = 0;
     this.liveSession = null;
     this.responseQueue = [];
+    this.audioParts = [];
     this.createdAt = Date.now();
   }
 
@@ -105,8 +143,7 @@ class ChatSession {
   }
 
   shouldEndSession() {
-    return this.questionCount >= 10 || 
-           this.messages.some(msg => msg.content?.includes('SUMMARY_START'));
+    return this.messages.some(msg => msg.content?.includes('SUMMARY_START'));
   }
 
   getConversationHistory() {
@@ -121,7 +158,20 @@ class ChatSession {
 app.post('/chat', async (req, res) => {
   const { patientId, userInput, mode, context } = req.body;
 
-  console.log('Chat request:', { patientId, mode, hasContext: !!context, userInput: userInput?.substring(0, 50) });
+  console.log('🔄 CHAT REQUEST RECEIVED:');
+  console.log('========================');
+  console.log('Patient ID:', patientId);
+  console.log('Mode:', mode);
+  console.log('User Input:', userInput);
+  console.log('Has Context:', !!context);
+  console.log('Context Length:', context?.length || 0);
+  
+  if (context) {
+    console.log('📋 FULL CONTEXT RECEIVED:');
+    console.log('=========================');
+    console.log(context);
+    console.log('=========================');
+  }
 
   try {
     if (mode === 'voice') {
@@ -148,24 +198,47 @@ async function handleTextChat(req, res) {
     sessions.set(patientId, session);
   }
 
-  // Add user input to conversation
-  session.addMessage('user', userInput);
+  // Handle START_SESSION trigger for initial AI response
+  const isStartSession = userInput === 'START_SESSION';
+  
+  // Add user input to conversation (skip for START_SESSION)
+  if (!isStartSession) {
+    session.addMessage('user', userInput);
+  }
 
   try {
     const model = 'gemini-2.5-flash';
-    const conversationHistory = session.getConversationHistory();
     
-    // Build contents array for the API
-    const contents = conversationHistory.map(msg => ({
-      role: msg.role === 'model' ? 'model' : 'user',
-      parts: [{ text: msg.content }]
-    }));
+    let contents;
+    
+    if (isStartSession) {
+      // For initial session, just send context and ask AI to start
+      contents = [
+        {
+          role: 'user',
+          parts: [{ text: context + '\n\nPlease start the medical interview now.' }]
+        }
+      ];
+    } else {
+      // Normal conversation flow
+      const conversationHistory = session.getConversationHistory();
+      contents = conversationHistory.map(msg => ({
+        role: msg.role === 'model' ? 'model' : 'user',
+        parts: [{ text: msg.content }]
+      }));
+    }
 
     console.log('Sending to Gemini 2.5 Flash:', {
       model,
       messageCount: contents.length,
-      lastMessage: contents[contents.length - 1]?.parts[0]?.text?.substring(0, 100)
+      lastMessageLength: contents[contents.length - 1]?.parts[0]?.text?.length,
+      lastMessagePreview: contents[contents.length - 1]?.parts[0]?.text?.substring(0, 200) + '...'
     });
+    
+    console.log('📤 FULL LAST MESSAGE CONTENT:');
+    console.log('==============================');
+    console.log(contents[contents.length - 1]?.parts[0]?.text);
+    console.log('==============================');
 
     const response = await ai.models.generateContentStream({
       model,
@@ -193,13 +266,42 @@ async function handleTextChat(req, res) {
     session.addMessage('model', replyText);
 
     // Check if session should end
-    // TODO: Store summaries in Firestore after confirmation from patient
     if (session.shouldEndSession()) {
+      console.log('🏁 Session ending, storing summary for patient:', patientId);
       const summary = replyText.includes('SUMMARY_START') 
         ? replyText.split('SUMMARY_START')[1]
         : replyText;
 
-      await db.collection('patientSummaries').doc(patientId).set({
+      console.log('📋 Summary to store:', summary.substring(0, 100) + '...');
+
+      // Store summary in the patients collection
+      const patientRef = db.collection('patients').doc(patientId);
+      
+      try {
+        // Try to update the patient document with the latest summary
+        await patientRef.update({
+          latestConversationSummary: summary,
+          lastConversationDate: admin.firestore.FieldValue.serverTimestamp(),
+          conversationHistory: session.messages,
+        });
+      } catch (error) {
+        // If patient document doesn't exist, create it with the summary
+        console.log('⚠️ Error updating patient document:', error.code, error.message);
+        if (error.code === 'not-found') {
+          console.log('📝 Creating new patient document with summary');
+          await patientRef.set({
+            latestConversationSummary: summary,
+            lastConversationDate: admin.firestore.FieldValue.serverTimestamp(),
+            conversationHistory: session.messages,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        } else {
+          throw error; // Re-throw if it's a different error
+        }
+      }
+
+      // Also store in a subcollection for historical records
+      await patientRef.collection('conversationSummaries').add({
         summary,
         conversationHistory: session.messages,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
@@ -226,67 +328,181 @@ async function handleTextChat(req, res) {
   }
 }
 
+/**
+ * Transcodes a WebM audio buffer to a raw L16 PCM audio buffer.
+ * @param {Buffer} webmBuffer The input audio buffer in WebM format.
+ * @returns {Promise<Buffer>} A promise that resolves with the raw L16 PCM buffer.
+ */
+function transcodeWebmToL16(webmBuffer) {
+  return new Promise((resolve, reject) => {
+    const pcmChunks = [];
+    const passThrough = new PassThrough();
+    passThrough.end(webmBuffer);
+
+    const writableStream = new Writable({
+      write(chunk, encoding, callback) {
+        pcmChunks.push(chunk);
+        callback();
+      },
+    });
+
+    ffmpeg(passThrough)
+      .inputFormat('webm')
+      .audioCodec('pcm_s16le') // Signed 16-bit Little Endian PCM
+      .audioFrequency(16000)   // 16kHz sample rate
+      .audioChannels(1)        // Mono
+      .toFormat('s16le')       // Output format
+      .on('error', (err) => reject(new Error(`FFmpeg error: ${err.message}`)))
+      .on('end', () => {
+        const pcmBuffer = Buffer.concat(pcmChunks);
+        console.log('✅ FFmpeg transcoding successful, PCM buffer length:', pcmBuffer.length);
+        resolve(pcmBuffer);
+      })
+      .pipe(writableStream);
+  });
+}
+
 async function handleVoiceChat(req, res) {
-  const { patientId, userInput, context } = req.body;
+  const { patientId, userInput, context, audioData } = req.body;
 
   try {
+    // Get the existing session or create a new one for context management
     let sessionWrapper = sessions.get(patientId);
+    if (!sessionWrapper) {
+      sessionWrapper = new ChatSession(patientId, context);
+      sessions.set(patientId, sessionWrapper);
+    }
 
-    if (!sessionWrapper || !sessionWrapper.liveSession) {
-      console.log('Creating new voice session for patient:', patientId);
+    const isStartSession = userInput === 'START_SESSION';
+    let pcmBuffer = null; // To hold the transcoded audio
+
+    // --- STEP 1: Process audio FIRST, before any API calls ---
+    if (!isStartSession && audioData) {
+      console.log('🎤 Received audio data from user, length:', audioData.length);
+      
+      const webmBuffer = Buffer.from(audioData, 'base64');
+      console.log('🔄 Converted Base64 to WebM buffer, length:', webmBuffer.length);
+      
+      console.log('🎵 Starting FFmpeg transcoding...');
+      pcmBuffer = await transcodeWebmToL16(webmBuffer);
+      // Now pcmBuffer is ready to be sent instantly
+    }
+
+    // --- STEP 2: Connect to the API only when we are ready to send ---
+    if (!sessionWrapper.liveSession) {
+      console.log('🎤 Creating new VOICE session for patient:', patientId);
       
       const responseQueue = [];
+      const audioParts = [];
       
       const liveSession = await ai.live.connect({
-        model: 'models/gemini-2.5-flash-native-audio-preview-09-2025',
+        model: 'gemini-2.5-flash-native-audio-preview-09-2025',
         callbacks: {
-          onopen: function () {
-            console.log('Live session opened for patient:', patientId);
-          },
-          onmessage: function (message) {
+          onopen: () => console.log('🎙️ Live AUDIO session opened for patient:', patientId),
+          onmessage: (message) => {
             responseQueue.push(message);
+            handleModelTurn(message, audioParts);
           },
-          onerror: function (e) {
-            console.error('Live session error:', e.message);
-          },
-          onclose: function (e) {
-            console.log('Live session closed:', e.reason);
-          },
+          onerror: (e) => console.error('❌ Live session error:', e.message),
+          onclose: (e) => console.log('🔇 Live session closed:', e.reason),
         },
         config: {
           responseModalities: [Modality.AUDIO, Modality.TEXT],
           mediaResolution: MediaResolution.MEDIA_RESOLUTION_MEDIUM,
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: {
-                voiceName: 'Zephyr',
-              }
-            }
-          }
+          speechConfig: { 
+            voiceConfig: { 
+              prebuiltVoiceConfig: { 
+                voiceName: 'Zephyr' 
+              } 
+            } 
+          },
+          contextWindowCompression: { 
+            triggerTokens: 25600, 
+            slidingWindow: { targetTokens: 12800 } 
+          },
         },
       });
 
-      sessionWrapper = new ChatSession(patientId, context);
       sessionWrapper.liveSession = liveSession;
       sessionWrapper.responseQueue = responseQueue;
-      sessions.set(patientId, sessionWrapper);
+      sessionWrapper.audioParts = audioParts;
 
-      // Send initial context
-      await liveSession.sendClientContent({
-        turns: [context]
-      });
+      // 🔧 FIX 1: Only send context ONCE - only for START_SESSION in voice mode
+      if (isStartSession) {
+        console.log('📋 Sending initial context for new voice session');
+        await liveSession.sendRealtimeInput({
+          text: sessionWrapper.context + '\n\nPlease start the medical interview now. Respond with audio.'
+        });
+        
+        // 🔧 FIX 2: Wait for model's initial response before allowing audio input
+        console.log('⏳ Waiting for model\'s initial response...');
+        const initialTurn = await handleTurn(sessionWrapper.responseQueue);
+        
+        // Process initial response
+        let replyText = '';
+        let responseAudioData = null;
+        
+        for (const message of initialTurn) {
+          if (message.serverContent?.modelTurn?.parts) {
+            const part = message.serverContent.modelTurn.parts[0];
+            if (part?.text) replyText += part.text;
+            if (part?.inlineData?.data) {
+              responseAudioData = part.inlineData.data;
+              console.log('🔊 Received initial audio response, length:', responseAudioData.length);
+            }
+          }
+        }
+
+        // Combine all audio parts if multiple chunks
+        if (sessionWrapper.audioParts && sessionWrapper.audioParts.length > 0) {
+          responseAudioData = sessionWrapper.audioParts.join('');
+          sessionWrapper.audioParts = []; // Reset for next response
+        }
+
+        sessionWrapper.addMessage('model', replyText || '[Audio Response]');
+
+        return res.json({
+          reply: replyText || 'Audio response',
+          audioData: responseAudioData,
+          endSession: false,
+          sessionId: patientId
+        });
+      }
     }
 
-    // Send user input
-    await sessionWrapper.liveSession.sendClientContent({
-      turns: [userInput]
-    });
+    // --- STEP 3: Send user input (audio or text) only for non-START_SESSION ---
+    if (!isStartSession) {
+      console.log("🔍 TURN STATE:", {
+        hasPendingMessages: sessionWrapper.responseQueue.length,
+        audioPartsCount: sessionWrapper.audioParts.length,
+        hasAudio: !!pcmBuffer,
+        hasText: !!(userInput && userInput.trim())
+      });
 
-    sessionWrapper.addMessage('user', userInput);
+      if (pcmBuffer) {
+        // pcmBuffer was prepared in Step 1
+        console.log('� Sending transcoded PCM buffer to Gemini Live, length:', pcmBuffer.length);
+        // Convert to Base64 and use correct MIME type
+        const base64Pcm = pcmBuffer.toString('base64');
+        console.log('📤 Converted to Base64, length:', base64Pcm.length);
+        await sessionWrapper.liveSession.sendRealtimeInput({
+          audio: {
+            data: base64Pcm,
+            mimeType: 'audio/pcm;rate=16000'
+          }
+        });
+      } else if (userInput && userInput.trim()) {
+        await sessionWrapper.liveSession.sendRealtimeInput({
+          text: userInput
+        });
+      }
+      
+      sessionWrapper.addMessage('user', userInput || '[Audio Message]');
+    }
 
     // Wait for and process response
     let replyText = '';
-    let audioData = null;
+    let responseAudioData = null;
     
     const turn = await handleTurn(sessionWrapper.responseQueue);
     
@@ -294,11 +510,20 @@ async function handleVoiceChat(req, res) {
       if (message.serverContent?.modelTurn?.parts) {
         const part = message.serverContent.modelTurn.parts[0];
         if (part?.text) replyText += part.text;
-        if (part?.inlineData?.data) audioData = part.inlineData.data;
+        if (part?.inlineData?.data) {
+          responseAudioData = part.inlineData.data;
+          console.log('🔊 Received audio response, length:', responseAudioData.length);
+        }
       }
     }
 
-    sessionWrapper.addMessage('model', replyText);
+    // Combine all audio parts if multiple chunks
+    if (sessionWrapper.audioParts && sessionWrapper.audioParts.length > 0) {
+      responseAudioData = sessionWrapper.audioParts.join('');
+      sessionWrapper.audioParts = []; // Reset for next response
+    }
+
+    sessionWrapper.addMessage('model', replyText || '[Audio Response]');
 
     // Check if session should end
     if (sessionWrapper.shouldEndSession()) {
@@ -306,7 +531,32 @@ async function handleVoiceChat(req, res) {
         ? replyText.split('SUMMARY_START')[1]
         : replyText;
 
-      await db.collection('patientSummaries').doc(patientId).set({
+      // Store summary in the patients collection
+      const patientRef = db.collection('patients').doc(patientId);
+      
+      try {
+        // Try to update the patient document with the latest summary
+        await patientRef.update({
+          latestConversationSummary: summary,
+          lastConversationDate: admin.firestore.FieldValue.serverTimestamp(),
+          conversationHistory: sessionWrapper.messages,
+        });
+      } catch (error) {
+        // If patient document doesn't exist, create it with the summary
+        if (error.code === 'not-found') {
+          await patientRef.set({
+            latestConversationSummary: summary,
+            lastConversationDate: admin.firestore.FieldValue.serverTimestamp(),
+            conversationHistory: sessionWrapper.messages,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        } else {
+          throw error; // Re-throw if it's a different error
+        }
+      }
+
+      // Also store in a subcollection for historical records
+      await patientRef.collection('conversationSummaries').add({
         summary,
         conversationHistory: sessionWrapper.messages,
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
@@ -316,16 +566,16 @@ async function handleVoiceChat(req, res) {
       sessions.delete(patientId);
 
       return res.json({
-        reply: replyText,
-        audioData,
+        reply: replyText || 'Session completed',
+        audioData: responseAudioData,
         endSession: true,
         sessionId: patientId
       });
     }
 
     return res.json({
-      reply: replyText,
-      audioData,
+      reply: replyText || 'Audio response',
+      audioData: responseAudioData,
       endSession: false,
       sessionId: patientId
     });
@@ -333,6 +583,27 @@ async function handleVoiceChat(req, res) {
   } catch (error) {
     console.error('Error in voice chat:', error);
     throw error;
+  }
+}
+
+// Audio handling function from boilerplate
+function handleModelTurn(message, audioParts) {
+  if (message.serverContent?.modelTurn?.parts) {
+    const part = message.serverContent?.modelTurn?.parts?.[0];
+
+    if (part?.fileData) {
+      console.log(`📁 File: ${part?.fileData.fileUri}`);
+    }
+
+    if (part?.inlineData) {
+      const inlineData = part?.inlineData;
+      audioParts.push(inlineData?.data ?? '');
+      console.log('🎵 Audio chunk received, length:', inlineData?.data?.length || 0);
+    }
+
+    if (part?.text) {
+      console.log('💬 Text response:', part?.text);
+    }
   }
 }
 

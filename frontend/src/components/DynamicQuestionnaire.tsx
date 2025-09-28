@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from './ui/button';
 import { Switch } from './ui/switch';
 import { useAuth } from '../hooks/useAuth';
@@ -17,35 +17,47 @@ export default function PatientDashboard() {
   const [isRecording, setIsRecording] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const initializedRef = useRef(false); // Flag to prevent multiple initializations
   const patientId = currentUser?.uid || 'anonymous';
 
-  // Build patient context from historical data
   const buildPatientContext = async (uid: string): Promise<string> => {
     try {
+      console.log('🔍 Building patient context for UID:', uid);
       const [patientData, questionnaireData] = await Promise.all([
         getPatientData(uid),
         getQuestionnaireData(uid)
       ]);
 
-      let context = `You are a virtual medical assistant helping collect a detailed patient history.
+      console.log('👤 PATIENT DATA RETRIEVED:');
+      console.log('==========================');
+      console.log(JSON.stringify(patientData, null, 2));
+      console.log('==========================');
+      
+      console.log('📝 QUESTIONNAIRE DATA RETRIEVED:');
+      console.log('=================================');
+      console.log(JSON.stringify(questionnaireData, null, 2));
+      console.log('=================================');
+
+      let context = `You are a virtual medical assistant helping doctors or nurse collect a detailed patient history to narrow down the focus.
 
 The patient will provide initial background information and chief complaint.
 
 Your goal is to ask clear, focused, and medically logical questions to:
+- Ask one Question at a time
+- Don't ask things already mentioned in Patient History and Questionnaire, build on it and ask relevant follow-ups
 - Understand the main symptom(s) and their characteristics (onset, duration, severity, quality)
 - Identify any associated symptoms or red flags (e.g., nausea, vision changes, chest pain)
 - Explore relevant past medical history, medications, allergies, family history, and lifestyle factors
 - Narrow down possible causes to help the doctor in diagnosis and treatment planning
 
-Keep questions concise and easy for the patient to answer.
+Requirements:
+- Be direct and professional. Do not use greetings, apologies, or casual filler.
+- Keep questions concise and easy for the patient to answer.
+- Always use second person (you/your) when asking questions, never use the patient's name.
+- Stop asking new questions when sufficient information is gathered or after 5 questions.
+- After the last question, generate a clear and concise bullet-point summary preceded by "SUMMARY_START" on a new line.
 
-Stop asking new questions when you have gathered sufficient clinical information or after 10 questions.
-
-At that point, generate a clear and concise bullet-point summary of the patient's key history points, including their main complaint, symptom details, relevant past conditions, and any important risks.
-
-Then politely thank the patient for their information.
-
-Begin by asking the patient to describe their main symptoms and how these affect their daily life right now.
+Begin by asking the patient to describe their main symptoms.
 
 ---PATIENT HISTORY---`;
 
@@ -77,7 +89,6 @@ Begin by asking the patient to describe their main symptoms and how these affect
           context += `\n- Lifestyle: ${patientData.lifestyle}`;
         }
       }
-
       if (questionnaireData && Object.keys(questionnaireData).length > 0) {
         context += `\n\nPrevious Questionnaire Responses:`;
         Object.entries(questionnaireData).forEach(([key, value]) => {
@@ -85,7 +96,16 @@ Begin by asking the patient to describe their main symptoms and how these affect
             context += `\n- ${key}: ${value}`;
           }
         });
-      }
+      } 
+      console.log('📋 FINAL BUILT CONTEXT:');
+      console.log('========================');
+      console.log(context);
+      console.log('========================');
+      console.log('📊 Context stats:', {
+        length: context.length,
+        hasPatientData: !!patientData,
+        hasQuestionnaireData: !!(questionnaireData && Object.keys(questionnaireData).length > 0)
+      });
 
       return context;
     } catch (error) {
@@ -95,6 +115,7 @@ Begin by asking the patient to describe their main symptoms and how these affect
 The patient will provide initial background information and chief complaint.
 
 Your goal is to ask clear, focused, and medically logical questions to:
+- Ask one Question at a time
 - Understand the main symptom(s) and their characteristics (onset, duration, severity, quality)
 - Identify any associated symptoms or red flags (e.g., nausea, vision changes, chest pain)
 - Explore relevant past medical history, medications, allergies, family history, and lifestyle factors
@@ -102,28 +123,96 @@ Your goal is to ask clear, focused, and medically logical questions to:
 
 Keep questions concise and easy for the patient to answer.
 
-Stop asking new questions when you have gathered sufficient clinical information or after 10 questions.
+Stop asking new questions when you have gathered sufficient clinical information or after 3 questions.
 
-At that point, generate a clear and concise bullet-point summary of the patient's key history points, including their main complaint, symptom details, relevant past conditions, and any important risks.
+At that point, generate a clear and concise bullet-point summary of the patient's key history points, including their main complaint, symptom details, relevant past conditions, and any important risks. Precede the summary with "SUMMARY_START" on a new line.
 
-Then politely thank the patient for their information.
 
 Begin by asking the patient to describe their main symptoms and how these affect their daily life right now.`;
     }
   };
 
-  // Load patient context when component mounts or user changes
+  // Function to start the initial conversation (only for text mode)
+  const startInitialConversation = useCallback(async (context: string) => {
+    if (sessionId) return; // Don't start if session already exists
+    if (voiceMode) return; // Only auto-start in text mode
+    
+    try {
+      const requestBody = {
+        patientId,
+        sessionId: null,
+        userInput: 'START_SESSION', // Special trigger to start conversation
+        mode: 'text', // Always text mode for auto-start
+        context,
+      };
+
+      console.log('🚀 Starting initial conversation in TEXT MODE ONLY...');
+      console.log('📋 FULL PATIENT CONTEXT BEING SENT:');
+      console.log('=====================================');
+      console.log(context);
+      console.log('=====================================');
+      console.log('📊 Request Body:', {
+        patientId,
+        mode: 'text',
+        contextLength: context.length,
+        hasSessionId: !!sessionId
+      });
+
+      const res = await fetch('http://localhost:3000/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Network error' }));
+        throw new Error(errorData.error || `HTTP ${res.status}: ${res.statusText}`);
+      }
+
+      const data = await res.json();
+      
+      if (data.reply) {
+        // Add AI's initial message
+        setMessages([{ from: 'ai', text: data.reply }]);
+        
+        // Handle audio if in voice mode
+        if (data.audioData && audioRef.current && voiceMode) {
+          try {
+            audioRef.current.src = `data:audio/wav;base64,${data.audioData}`;
+            await audioRef.current.play();
+          } catch (audioError) {
+            console.warn('Audio playback failed:', audioError);
+          }
+        }
+        
+        setSessionId(data.sessionId);
+      }
+
+    } catch (err) {
+      console.error('Failed to start initial conversation:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      setError(`Failed to start conversation: ${errorMessage}`);
+    }
+  }, [sessionId, patientId, voiceMode]);
+
   useEffect(() => {
     setContextLoading(true);
-    if (currentUser?.uid) {
+    if (currentUser?.uid && !initializedRef.current) {
+      initializedRef.current = true; // Mark as initialized
       buildPatientContext(currentUser.uid)
-        .then(setPatientContext)
+        .then((context) => {
+          setPatientContext(context);
+          // Automatically start the conversation with the AI (only once)
+          if (!sessionId) {
+            startInitialConversation(context);
+          }
+        })
         .finally(() => setContextLoading(false));
     } else {
       setPatientContext(null);
       setContextLoading(false);
     }
-  }, [currentUser?.uid]); 
+  }, [currentUser?.uid]); // eslint-disable-line react-hooks/exhaustive-deps 
 
   const sendMessage = async (text: string, audioBlob?: Blob) => {
     if (isSending || (!text.trim() && !audioBlob)) return;
@@ -154,13 +243,15 @@ Begin by asking the patient to describe their main symptoms and how these affect
       if (audioBlob && voiceMode) {
         const audioBase64 = await blobToBase64(audioBlob);
         requestBody.audioData = audioBase64;
+        console.log('🎤 Sending audio data, size:', audioBase64.length);
       }
 
-      console.log('Sending message:', { 
+      console.log('📤 Sending message:', { 
         patientId, 
         mode: voiceMode ? 'voice' : 'text', 
         hasContext: !!patientContext,
-        textLength: text.length 
+        textLength: text.length,
+        hasAudio: !!(audioBlob && voiceMode)
       });
 
       const res = await fetch('http://localhost:3000/chat', {
@@ -180,29 +271,51 @@ Begin by asking the patient to describe their main symptoms and how these affect
         throw new Error('Empty response from server');
       }
 
-      // Add AI response
       setMessages(prev => [...prev, { from: 'ai', text: data.reply }]);
 
-      // Handle audio response
-      if (data.audioData && audioRef.current && voiceMode) {
+      // Handle audio response in voice mode
+      if (voiceMode && data.audioData && audioRef.current) {
         try {
+          console.log('🔊 Playing audio response, data length:', data.audioData.length);
+          // Update the message to show it's an audio response
+          setMessages(prev => prev.map((msg, index) => 
+            index === prev.length - 1 && msg.from === 'ai' 
+              ? { ...msg, text: '🔊 [Audio Response]', isAudio: true }
+              : msg
+          ));
+          
           audioRef.current.src = `data:audio/wav;base64,${data.audioData}`;
           await audioRef.current.play();
+          console.log('✅ Audio playback started successfully');
         } catch (audioError) {
-          console.warn('Audio playback failed:', audioError);
+          console.warn('❌ Audio playback failed:', audioError);
         }
+      } else if (voiceMode && !data.audioData) {
+        // If in voice mode but no audio returned, show text as fallback
+        console.log('⚠️ Voice mode but no audio data received, showing text response');
       }
 
-      // Update session state
       if (!sessionId) setSessionId(data.sessionId);
       
       if (data.endSession) {
-        alert('Session completed! Your responses have been saved for the doctor to review.');
+        // Extract summary from the AI's response if it contains SUMMARY_START
+        const summary = data.reply?.includes('SUMMARY_START') 
+          ? data.reply.split('SUMMARY_START')[1]
+          : null;
+        
+        if (summary) {
+          setMessages(prev => [...prev, { 
+            from: 'ai', 
+            text: `📋 **CONVERSATION SUMMARY**\n\n${summary}\n\n✅ This summary has been saved to your patient record and will be reviewed by your healthcare provider.` 
+          }]);
+        }
+        
         setSessionId(null);
-        setMessages(prev => [...prev, { 
-          from: 'ai', 
-          text: 'Thank you for completing the questionnaire. Your doctor will review your responses.' 
-        }]);
+        
+        // Show completion message after a brief delay
+        setTimeout(() => {
+          alert('Session completed! Your conversation summary has been saved for your doctor to review.');
+        }, 1000);
       }
 
     } catch (err) {
@@ -210,7 +323,6 @@ Begin by asking the patient to describe their main symptoms and how these affect
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       setError(errorMessage);
       
-      // Add error message to chat
       setMessages(prev => [...prev, { 
         from: 'ai', 
         text: `I apologize, but I encountered an error: ${errorMessage}. Please try again.` 
@@ -233,26 +345,39 @@ Begin by asking the patient to describe their main symptoms and how these affect
     });
   };
 
-  // Voice recording functions
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          sampleRate: 16000, // Gemini prefers 16kHz
+          channelCount: 1    // Mono audio
+        } 
+      });
+      
+      // Use WebM format which is better supported
+      const options = {
+        mimeType: 'audio/webm;codecs=opus'
+      };
+      
+      const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
       
       const audioChunks: BlobPart[] = [];
       
       mediaRecorder.ondataavailable = (event) => {
-        audioChunks.push(event.data);
+        if (event.data.size > 0) {
+          audioChunks.push(event.data);
+        }
       };
       
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-        sendMessage('', audioBlob);
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        console.log('🎤 Recording stopped, audio blob size:', audioBlob.size, 'type:', audioBlob.type);
+        sendMessage('[Voice Message]', audioBlob);
         stream.getTracks().forEach(track => track.stop());
       };
       
-      mediaRecorder.start();
+      mediaRecorder.start(100); // Collect data every 100ms
       setIsRecording(true);
     } catch (err) {
       console.error('Failed to start recording:', err);
@@ -370,7 +495,7 @@ Begin by asking the patient to describe their main symptoms and how these affect
           >
             {isRecording ? 'Stop Recording' : 'Start Recording'}
           </Button>
-          <audio ref={audioRef} controls className="hidden" />
+          <audio ref={audioRef} controls className="mt-2" />
         </div>
       ) : (
         <div className="flex gap-3 p-4 bg-gray-50 rounded-lg">

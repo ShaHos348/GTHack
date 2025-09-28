@@ -33,7 +33,11 @@ type QuestionAnswer = {
   answer: string;
 };
 
-const PatientQuestionnaire: React.FC = () => {
+interface PatientQuestionnaireProps {
+  onComplete?: () => void;
+}
+
+const PatientQuestionnaire: React.FC<PatientQuestionnaireProps> = ({ onComplete }) => {
   const { patientId } = useParams<{ patientId: string }>();
   const navigate = useNavigate();
 
@@ -79,9 +83,19 @@ const PatientQuestionnaire: React.FC = () => {
       );
 
       setBanner("✅ Questionnaire saved successfully!");
-      navigate("/patientdashboard");
-    } catch (err: any) {
-      setBanner(`Failed to save: ${err?.message || "Unknown error"}`);
+      
+      // If onComplete callback is provided, call it to transition to Dynamic Questionnaire
+      // Otherwise, navigate to patient dashboard (for backward compatibility)
+      if (onComplete) {
+        setTimeout(() => {
+          onComplete();
+        }, 1000); // Small delay to show success message
+      } else {
+        navigate("/patientdashboard");
+      }
+    } catch (err: unknown) {
+      const error = err as Error;
+      setBanner(`Failed to save: ${error?.message || "Unknown error"}`);
     } finally {
       setSaving(false);
     }
