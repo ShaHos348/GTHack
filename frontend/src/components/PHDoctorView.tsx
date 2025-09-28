@@ -12,7 +12,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
 
 type Values = {
   firstName: string;
@@ -25,7 +24,8 @@ type Values = {
   emergencyName: string;
   relationship: string;
   emergencyPhone: string;
-  insurance: string;
+  insuranceProvider: string;
+  insuranceMemberId: string;
   currentMedications: string;
   allergies: string;
   pastSurgeries: string;
@@ -46,7 +46,8 @@ const emptyValues: Values = {
   emergencyName: "",
   relationship: "",
   emergencyPhone: "",
-  insurance: "",
+  insuranceProvider: "",
+  insuranceMemberId: "",
   currentMedications: "",
   allergies: "",
   pastSurgeries: "",
@@ -162,6 +163,7 @@ const PHDoctorView: React.FC<PHDoctorViewProps> = ({ pid }) => {
       };
 
       await setDoc(ref, payload, { merge: true });
+      setBanner("✅ Patient history updated.");
     } catch (err: any) {
       setErrors({ form: err?.message || "Failed to save." });
     } finally {
@@ -282,7 +284,7 @@ const PHDoctorView: React.FC<PHDoctorViewProps> = ({ pid }) => {
                     id="sex"
                     value={values.sex}
                     onChange={update("sex")}
-                    className="file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-gray-200 h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs outline-none md:text-sm"
+                    className="border rounded-md px-3 py-1 w-full"
                   >
                     <option value="">Select</option>
                     <option value="male">Male</option>
@@ -322,13 +324,26 @@ const PHDoctorView: React.FC<PHDoctorViewProps> = ({ pid }) => {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="insurance">Insurance + policy number</Label>
-                <Input
-                  id="insurance"
-                  value={values.insurance}
-                  onChange={update("insurance")}
-                />
+              {/* insurance split */}
+              <div className="flex gap-x-4">
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="insurance-provider">Insurance Provider</Label>
+                  <Input
+                    id="insurance-provider"
+                    value={values.insuranceProvider}
+                    onChange={update("insuranceProvider")}
+                    placeholder="e.g., Blue Cross Blue Shield, Aetna"
+                  />
+                </div>
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="insurance-member-id">Insurance Member ID</Label>
+                  <Input
+                    id="insurance-member-id"
+                    value={values.insuranceMemberId}
+                    onChange={update("insuranceMemberId")}
+                    placeholder="e.g., ABC123456789"
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
