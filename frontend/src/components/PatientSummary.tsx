@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Card,
   CardDescription,
@@ -9,53 +9,58 @@ import {
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
-  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "./ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "./ui/input";
+import { doc, setDoc } from "firebase/firestore";
+import { db } from "./firebase";
 
 interface PatientSummaryProps {
   pid: string | null;
 }
 
-const treatments = [
-  {
-    treatmentName: "INV001",
-    coverage: "Paid",
-    alternatives: ["bananas, apples"],
-  },
-  {
-    treatmentName: "INV002",
-    coverage: "Pending",
-    alternatives: "$150.00",
-  },
-  {
-    treatmentName: "INV003",
-    coverage: "Unpaid",
-    alternatives: "$350.00",
-  },
-  {
-    treatmentName: "INV004",
-    coverage: "Paid",
-    alternatives: "$450.00",
-  },
-  {
-    treatmentName: "INV005",
-    coverage: "Paid",
-    alternatives: "$550.00",
-  },
-];
-
 const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
+  const [treatments, setTreatments] = useState([
+    {
+      treatmentName: "INV001",
+      coverage: "Paid",
+      alternatives: ["bananas", "apples"],
+    },
+    {
+      treatmentName: "INV002",
+      coverage: "Pending",
+      alternatives: ["oranges", "grapes"],
+    },
+  ]);
+
+  const [showPopup, setShowPopup] = useState(false);
+  const [treatmentName, setTreatmentName] = useState("");
+
+  const addNewTreatment = () => {
+    const newTreatment = {
+      treatmentName,
+      coverage: "Pending",
+      alternatives: [],
+    };
+    setTreatments((prev) => [...prev, newTreatment]);
+    setTreatmentName("");
+    setShowPopup(false);
+  };
+
   return (
     <div className="flex items-center justify-center py-8">
-      {/* 1. Main Card: Keep it clean, let CardHeader/Content handle padding */}
       <Card className="flex w-full max-w-4xl">
-        {/* The CardHeader here already has the necessary px-6 */}
         <CardHeader>
           <CardTitle className="font-bold">Patient Summary</CardTitle>
           <CardDescription>
@@ -70,13 +75,7 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
               </CardHeader>
               <CardContent className="text-sm">
                 <div className="max-h-[12rem] overflow-y-auto border rounded-md p-2 bg-slate-50 scrollbar-hide">
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  asdasdasdasdsad asdasdsadada. asdasdasd asdadasd asdasdaas
-                  asdaadas asdada asdasdasdasdada asdadasasdasd
-                  asdasdasdasdsadasdadaad asdasdasasd Vivamus luctus urna sed
-                  urna ultricies ac tempor dui sagittis. In condimentum
-                  facilisis porta. Sed nec diam eu diam mattis viverra. Nulla
-                  fringilla, orci ac euismod semper. Aenean sit amet erat nunc.
+                  Lorem ipsum dolor sit amet, consectetur adipiscing elit...
                 </div>
               </CardContent>
             </Card>
@@ -87,17 +86,12 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
               </CardHeader>
               <CardContent className="text-sm">
                 <div className="max-h-[12rem] overflow-y-auto border rounded-md p-2 bg-slate-50 scrollbar-hide">
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit.
-                  asdasdasdasdsad asdasdsadada. asdasdasd asdadasd asdasdaas
-                  asdaadas asdada asdasdasdasdada asdadasasdasd
-                  asdasdasdasdsadasdadaad asdasdasasd Vivamus luctus urna sed
-                  urna ultricies ac tempor dui sagittis. In condimentum
-                  facilisis porta. Sed nec diam eu diam mattis viverra. Nulla
-                  fringilla, orci ac euismod semper. Aenean sit amet erat nunc.
+                  Lorem ipsum dolor sit amet, consectetur adipiscing elit...
                 </div>
               </CardContent>
             </Card>
           </div>
+
           <Card>
             <CardHeader className="w-full flex justify-between items-center">
               <CardTitle className="text-lg">Treatment Plan Summary</CardTitle>
@@ -111,13 +105,13 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {treatments.map((treatmentName) => (
-                    <TableRow key={treatmentName.treatmentName}>
+                  {treatments.map((treatment) => (
+                    <TableRow key={treatment.treatmentName}>
                       <TableCell className="w-1/2 font-medium">
-                        {treatmentName.treatmentName}
+                        {treatment.treatmentName}
                       </TableCell>
                       <TableCell className="w-1/2">
-                        {treatmentName.coverage}
+                        {treatment.coverage}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -125,13 +119,17 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
               </Table>
             </CardContent>
           </Card>
+
+          {/* Alternative Treatments */}
           <Card>
             <CardHeader className="w-full flex justify-between items-center">
               <CardTitle className="text-lg">Alternative Treatments</CardTitle>
-              <Button className="text-sm">Add Treatment</Button>
+              <Button className="text-sm" onClick={() => setShowPopup(true)}>
+                Add Treatment
+              </Button>
             </CardHeader>
             <CardContent>
-              <Table>
+              <Table id="alt-treatments">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-1/3">Treatment Name</TableHead>
@@ -140,19 +138,22 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {treatments.map((treatmentName) => (
-                    <TableRow key={treatmentName.treatmentName}>
+                  {treatments.map((treatment) => (
+                    <TableRow key={treatment.treatmentName}>
                       <TableCell className="w-1/3 font-medium">
-                        {treatmentName.treatmentName}
+                        {treatment.treatmentName}
                       </TableCell>
                       <TableCell className="w-1/3">
-                        {treatmentName.coverage}
+                        {treatment.coverage}
                       </TableCell>
                       <TableCell className="w-1/3">
-                        <select className="file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-gray-200 h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs outline-none md:text-sm">
+                        <select className="border-gray-200 h-9 w-full rounded-md border px-3 py-1 text-base shadow-xs outline-none md:text-sm">
                           <option value="">Select</option>
-                          <option value="male">Male</option>
-                          <option value="female">Female</option>
+                          {treatment.alternatives.map((alt) => (
+                            <option key={alt} value={alt}>
+                              {alt}
+                            </option>
+                          ))}
                         </select>
                       </TableCell>
                     </TableRow>
@@ -161,8 +162,67 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
               </Table>
             </CardContent>
           </Card>
+          <Button
+            className="text-sm"
+            onClick={async () => {
+              if (!pid) return; // Use patient id
+
+              try {
+                const rows = document.querySelectorAll<HTMLTableRowElement>(
+                  "#alt-treatments tbody tr"
+                );
+
+                const entriesToSave = Array.from(rows).map((row, i) => {
+                  const select = row.querySelector<HTMLSelectElement>("select");
+                  const alternative = select?.value;
+                  return {
+                    treatmentName: alternative || treatments[i].treatmentName,
+                    coverage: treatments[i].coverage,
+                  };
+                });
+
+                await setDoc(doc(db, `prescription/${pid}`), {
+                  entries: entriesToSave,
+                });
+                alert("Prescriptions saved!");
+              } catch (err) {
+                console.error("Failed to save prescriptions:", err);
+                alert("Failed to save prescriptions.");
+              }
+            }}
+          >
+            Save
+          </Button>
         </CardContent>
       </Card>
+
+      <Dialog open={showPopup} onOpenChange={setShowPopup}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Treatment</DialogTitle>
+            <DialogDescription>
+              Fill in new treatment option name
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4">
+            <label className="block text-sm font-medium mb-1">
+              Treatment Name
+            </label>
+            <Input
+              type="text"
+              placeholder="Enter treatment name"
+              value={treatmentName}
+              onChange={(e) => setTreatmentName(e.target.value)}
+            />
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowPopup(false)}>
+              Cancel
+            </Button>
+            <Button onClick={addNewTreatment}>Save</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
