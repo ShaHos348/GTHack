@@ -7,6 +7,8 @@ const { GoogleGenAI, Modality, MediaResolution } = require('@google/genai');
 const cors = require('cors');
 const ffmpeg = require('fluent-ffmpeg');
 const { Writable, PassThrough } = require('stream');
+const { TwelveLabs } = require('twelvelabs-js');
+const multer = require('multer');
 
 admin.initializeApp({
   credential: admin.credential.cert(require('../serviceKey.json')),
@@ -16,6 +18,19 @@ const db = admin.firestore();
 // Unified Gemini AI client for both text and voice
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
+});
+
+// TwelveLabs client initialization
+const twelveLabsClient = new TwelveLabs({
+  apiKey: process.env.TL_API_KEY,
+});
+
+// Configure multer for file uploads
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB limit
+  },
 });
 
 const sessions = new Map();
@@ -157,6 +172,630 @@ app.get("/patient/:patientId/data", async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// =====================
+// TWELVELABS VIDEO API ENDPOINTS
+// =====================
+
+// Test TwelveLabs connection
+app.get("/twelvelabs/test", async (req, res) => {
+  try {
+    console.log('🧪 Testing TwelveLabs connection...');
+    
+    if (!process.env.TL_API_KEY || process.env.TL_API_KEY === 'your_twelvelabs_api_key_here') {
+      return res.status(400).json({
+        error: 'TwelveLabs API key not configured',
+        message: 'Please set TL_API_KEY in your .env file'
+      });
+    }
+
+    // Test by listing indexes
+    const indexes = await twelveLabsClient.indexes.list();
+    
+    // Also test tasks.create method signature
+    console.log('🔍 Testing task creation method...');
+    console.log('Available methods:', Object.keys(twelveLabsClient.tasks));
+    
+    res.json({
+      success: true,
+      message: 'TwelveLabs connection successful',
+      apiKey: process.env.TL_API_KEY.substring(0, 8) + '...',
+      indexCount: indexes.data?.length || 0,
+      indexId: process.env.TWELVELABS_INDEX_ID || 'Not set',
+      taskMethods: Object.keys(twelveLabsClient.tasks),
+    });
+    
+  } catch (error) {
+    console.error('❌ TwelveLabs test failed:', error);
+    res.status(500).json({
+      error: 'TwelveLabs connection failed',
+      details: error.message
+    });
+  }
+});
+
+// Create TwelveLabs index (one-time setup)
+app.post("/twelvelabs/create-index", async (req, res) => {
+  try {
+    const { indexName, engines } = req.body;
+    
+    const index = await twelveLabsClient.indexes.create({
+      indexName: indexName || 'medical-meetings-index',
+      models: engines || [
+        {
+          modelName: 'marengo2.7',
+          modelOptions: ['visual', 'audio'] // Only these two options are supported
+        }
+      ],
+      addons: ['thumbnail']
+    });
+
+    console.log('✅ TwelveLabs index created:', index);
+    
+    res.json({
+      success: true,
+      indexId: index.id,
+      indexName: index.indexName || indexName,
+      message: 'Index created successfully'
+    });
+    
+  } catch (error) {
+    console.error('❌ Error creating TwelveLabs index:', error);
+    res.status(500).json({ 
+      error: 'Failed to create index',
+      details: error.message 
+    });
+  }
+});
+
+// Upload video to TwelveLabs
+app.post("/twelvelabs/upload-video", upload.single('video'), async (req, res) => {
+  try {
+    const { patientId, doctorId, title, description } = req.body;
+    
+    if (!req.file) {
+      return res.status(400).json({ error: 'No video file provided' });
+    }
+
+    if (!patientId) {
+      return res.status(400).json({ error: 'Patient ID is required' });
+    }
+
+    console.log('🎥 Uploading video to TwelveLabs...', {
+      filename: req.file.originalname,
+      size: req.file.size,
+      patientId,
+      title
+    });
+
+    // Use built-in fetch API with proper Blob handling (Node 18+)
+    // Convert Buffer to Blob with proper MIME type
+    const blob = new Blob([req.file.buffer], { type: req.file.mimetype });
+    
+    const formData = new FormData();
+    formData.append('index_id', process.env.TWELVELABS_INDEX_ID);
+    formData.append('video_file', blob, req.file.originalname);
+    
+    console.log('� Uploading to TwelveLabs API directly...');
+    
+    const response = await fetch('https://api.twelvelabs.io/v1.3/tasks', {
+      method: 'POST',
+      headers: {
+        'x-api-key': process.env.TL_API_KEY,
+      },
+      body: formData,
+    });
+    
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error('❌ TwelveLabs API Error:', response.status, errorBody);
+      throw new Error(`TwelveLabs API Error: ${response.status} - ${errorBody}`);
+    }
+    
+    const uploadResult = await response.json();
+    console.log('✅ Upload successful:', uploadResult);
+
+    // Try to extract both task id and video id (different SDK/versions use different names)
+    const taskId = uploadResult._id || uploadResult.id || uploadResult.task_id || uploadResult.taskId || null;
+    const videoId = uploadResult.video_id || uploadResult.videoId || null;
+
+    // initial processing status - prefer returned status if present
+    const initialStatus = (uploadResult.status && uploadResult.status.toLowerCase()) || 'processing';
+    const initialProgress = (uploadResult.process && uploadResult.process.percent_complete) || 0;
+
+    console.log('📤 Extracted IDs:', { taskId, videoId, initialStatus, initialProgress });
+
+    // Store video metadata in Firestore, saving both ids (task + video)
+    const videoMetadata = {
+      twelveLabsTaskId: taskId || null,
+      twelveLabsVideoId: videoId || null,
+      patientId,
+      doctorId: doctorId || null,
+      title: title || req.file.originalname,
+      description: description || '',
+      filename: req.file.originalname,
+      fileSize: req.file.size,
+      uploadedAt: admin.firestore.FieldValue.serverTimestamp(),
+      processingStatus: initialStatus,
+      processingProgress: initialProgress,
+    };
+
+    const videoRef = await db.collection('videos').add(videoMetadata);
+
+    res.json({
+      success: true,
+      videoDocId: videoRef.id,
+      twelveLabsTaskId: taskId,
+      twelveLabsVideoId: videoId,
+      message: 'Video upload started successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ Error uploading video to TwelveLabs:', error);
+    res.status(500).json({ 
+      error: 'Failed to upload video',
+      details: error.message 
+    });
+  }
+});
+
+// Check video processing status (accept either taskId or videoId)
+app.get("/twelvelabs/video-status/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const indexId = process.env.TWELVELABS_INDEX_ID;
+
+    let status = 'unknown';
+    let progress = 0;
+    let videoId = null;
+
+    // Try to retrieve a task first (task id)
+    try {
+      const task = await twelveLabsClient.tasks.retrieve(id);
+      // Task object may contain status, video_id, and process.percent_complete
+      status = task.status || 'processing';
+      progress = task.process?.percent_complete ?? task.progress ?? 0;
+      videoId = task.video_id || task.videoId || null;
+      console.log('[TwelveLabs] tasks.retrieve result:', { status, progress, videoId });
+    } catch (taskErr) {
+      // If tasks.retrieve fails (maybe id was actually a video id), fallback to videos.retrieve
+      console.log('[TwelveLabs] tasks.retrieve failed, trying videos.retrieve:', taskErr.message || taskErr);
+      if (!indexId) {
+        return res.status(500).json({ error: 'TWELVELABS_INDEX_ID not set in env' });
+      }
+      try {
+        const video = await twelveLabsClient.videos.retrieve(indexId, id);
+        // videos.retrieve has indexed_at / updated_at fields — if indexed_at exists -> ready
+        videoId = video._id || video.id || id;
+        status = video.indexed_at ? 'ready' : (video.status || 'processing');
+        // percent progress may not be available here; rely on indexed_at for completion
+        progress = video.indexed_at ? 100 : 0;
+        console.log('[TwelveLabs] videos.retrieve result:', { status, progress, videoId });
+      } catch (videoErr) {
+        console.error('[TwelveLabs] videos.retrieve also failed:', videoErr.message || videoErr);
+        // return best-effort error
+        return res.status(500).json({ error: 'Failed to retrieve task or video status', details: videoErr.message || videoErr });
+      }
+    }
+
+    // Update Firestore doc (match by taskId or videoId)
+    let videoQuery = await db.collection('videos')
+      .where('twelveLabsTaskId', '==', id)
+      .limit(1)
+      .get();
+
+    if (videoQuery.empty && videoId) {
+      videoQuery = await db.collection('videos')
+        .where('twelveLabsVideoId', '==', videoId)
+        .limit(1)
+        .get();
+    }
+
+    if (!videoQuery.empty) {
+      const videoDoc = videoQuery.docs[0];
+      const updateData = {
+        processingStatus: status,
+        processingProgress: progress,
+      };
+      if (videoId) updateData.twelveLabsVideoId = videoId;
+      await videoDoc.ref.update(updateData);
+    }
+
+    return res.json({
+      id,
+      status,
+      progress,
+      videoId,
+      message: status === 'ready' ? 'Video processing complete' : 'Video processing in progress'
+    });
+
+  } catch (error) {
+    console.error('❌ Error checking video status:', error);
+    res.status(500).json({ error: 'Failed to check video status', details: error.message });
+  }
+});
+
+// Combined search: Marengo for timestamps + Pegasus for text analysis
+app.post("/twelvelabs/search", async (req, res) => {
+  try {
+    const { query, patientId, videoIds } = req.body;
+    
+    if (!query) {
+      return res.status(400).json({ error: 'Search query is required' });
+    }
+
+    console.log('🔍 Simplified search with query:', query);
+
+    // Get video IDs from database if patientId is provided
+    let searchVideoIds = videoIds;
+    
+    if (patientId && !videoIds) {
+      const videosQuery = await db.collection('videos')
+        .where('patientId', '==', patientId)
+        .where('processingStatus', '==', 'ready')
+        .get();
+      
+      searchVideoIds = videosQuery.docs
+        .map(doc => doc.data().twelveLabsVideoId)
+        .filter(id => id); // Remove null values
+    }
+
+    if (!searchVideoIds || searchVideoIds.length === 0) {
+      return res.json({
+        success: true,
+        results: [],
+        textAnalysis: '',
+        message: 'No processed videos found for search'
+      });
+    }
+
+    // Skip the problematic search API for now, just do text analysis
+    let textAnalysis = '';
+    if (searchVideoIds.length > 0) {
+      try {
+        const analyzeResponse = await fetch('https://api.twelvelabs.io/v1.3/analyze', {
+          method: 'POST',
+          headers: {
+            'x-api-key': process.env.TL_API_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            video_id: searchVideoIds[0],
+            model: 'pegasus1.2',
+            prompt: query,
+            temperature: 0.2
+          })
+        });
+
+        if (analyzeResponse.ok) {
+          const responseText = await analyzeResponse.text();
+          
+          // Handle streaming response from TwelveLabs (multiple JSON objects)
+          let reply = '';
+          const lines = responseText.split('\n').filter(line => line.trim());
+          
+          for (const line of lines) {
+            try {
+              const jsonObj = JSON.parse(line);
+              if (jsonObj.event_type === 'text_generation' && jsonObj.text) {
+                reply += jsonObj.text;
+              }
+            } catch (parseError) {
+              // Skip lines that aren't valid JSON
+              continue;
+            }
+          }
+          
+          // If no text was extracted from streaming format, try fallback
+          if (!reply) {
+            try {
+              const singleJson = JSON.parse(responseText);
+              reply = singleJson.message || singleJson.data || singleJson.text || 'No analysis available';
+            } catch {
+              reply = 'No analysis available';
+            }
+          }
+          
+          textAnalysis = reply;
+        }
+      } catch (analyzeError) {
+        console.log('Text analysis failed:', analyzeError.message);
+        textAnalysis = 'Text analysis unavailable at the moment';
+      }
+    }
+
+    res.json({
+      success: true,
+      query,
+      results: [], // Empty timestamp results for now since search API is problematic
+      textAnalysis: textAnalysis, // Pegasus text analysis
+      totalResults: 0
+    });
+
+  } catch (error) {
+    console.error('❌ Error in combined search:', error);
+    res.status(500).json({ 
+      error: 'Failed to search videos',
+      details: error.message 
+    });
+  }
+});
+
+// Analyze video (open-ended QA) using Pegasus
+app.post("/twelvelabs/analyze", async (req, res) => {
+  try {
+    const { videoId, prompt, temperature = 0.2 } = req.body;
+    if (!videoId || !prompt) {
+      return res.status(400).json({ error: 'videoId and prompt are required' });
+    }
+
+    // Call TwelveLabs Analyze API (open-ended analysis / Pegasus)
+    // REST path: POST https://api.twelvelabs.io/v1.3/analyze
+    const body = {
+      video_id: videoId,
+      model: 'pegasus-1',   // request Pegasus for open-ended video analysis
+      prompt,
+      temperature
+    };
+
+    const analyzeResp = await fetch('https://api.twelvelabs.io/v1.3/analyze', {
+      method: 'POST',
+      headers: {
+        'x-api-key': process.env.TL_API_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!analyzeResp.ok) {
+      const errText = await analyzeResp.text();
+      console.error('TwelveLabs Analyze API error:', analyzeResp.status, errText);
+      return res.status(500).json({ error: 'TwelveLabs analyze failed', details: errText });
+    }
+
+    const responseText = await analyzeResp.text();
+    
+    // Handle streaming response from TwelveLabs (multiple JSON objects)
+    let replyText = '';
+    const lines = responseText.split('\n').filter(line => line.trim());
+    
+    for (const line of lines) {
+      try {
+        const jsonObj = JSON.parse(line);
+        if (jsonObj.event_type === 'text_generation' && jsonObj.text) {
+          replyText += jsonObj.text;
+        }
+      } catch (parseError) {
+        // Skip lines that aren't valid JSON
+        continue;
+      }
+    }
+    
+    // If no text was extracted from streaming format, try fallback
+    if (!replyText) {
+      try {
+        const singleJson = JSON.parse(responseText);
+        replyText = singleJson.message || singleJson.data || singleJson.text || 'No analysis available';
+      } catch {
+        replyText = 'No analysis available';
+      }
+    }
+
+    res.json({
+      success: true,
+      videoId,
+      prompt,
+      reply: replyText
+    });
+
+  } catch (error) {
+    console.error('❌ Error in /twelvelabs/analyze:', error);
+    res.status(500).json({ error: 'Analyze failed', details: error.message });
+  }
+});
+
+// Simple analyze-only endpoint (for when you just want text analysis without search)
+app.post("/twelvelabs/analyze-only", async (req, res) => {
+  try {
+    const { videoId, prompt, temperature = 0.2 } = req.body;
+    if (!videoId || !prompt) {
+      return res.status(400).json({ error: 'videoId and prompt are required' });
+    }
+
+    console.log('🤖 Analyzing video:', videoId, 'with prompt:', prompt);
+
+    // Call TwelveLabs Analyze API directly
+    const analyzeResponse = await fetch('https://api.twelvelabs.io/v1.3/analyze', {
+      method: 'POST',
+      headers: {
+        'x-api-key': process.env.TL_API_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        video_id: videoId,
+        model: 'pegasus1.2',
+        prompt,
+        temperature
+      })
+    });
+
+    if (!analyzeResponse.ok) {
+      const errText = await analyzeResponse.text();
+      console.error('Analyze API error:', analyzeResponse.status, errText);
+      return res.status(500).json({ error: 'Analyze failed', details: errText });
+    }
+
+    const responseText = await analyzeResponse.text();
+    
+    // Handle streaming response from TwelveLabs (multiple JSON objects)
+    let reply = '';
+    const lines = responseText.split('\n').filter(line => line.trim());
+    
+    for (const line of lines) {
+      try {
+        const jsonObj = JSON.parse(line);
+        if (jsonObj.event_type === 'text_generation' && jsonObj.text) {
+          reply += jsonObj.text;
+        }
+      } catch (parseError) {
+        // Skip lines that aren't valid JSON
+        continue;
+      }
+    }
+    
+    // If no text was extracted from streaming format, try fallback
+    if (!reply) {
+      try {
+        const singleJson = JSON.parse(responseText);
+        reply = singleJson.message || singleJson.data || singleJson.text || 'No analysis available';
+      } catch {
+        reply = 'No analysis available';
+      }
+    }
+
+    res.json({
+      success: true,
+      videoId,
+      prompt,
+      reply: reply
+    });
+
+  } catch (error) {
+    console.error('❌ Error in analyze-only:', error);
+    res.status(500).json({ error: 'Analyze failed', details: error.message });
+  }
+});
+
+// Update all video statuses for a patient
+app.post("/patient/:patientId/update-video-statuses", async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    
+    console.log('🔄 Updating video statuses for patient:', patientId);
+    
+    // Get all videos for this patient
+    const videosSnapshot = await db.collection('videos')
+      .where('patientId', '==', patientId)
+      .get();
+
+    if (videosSnapshot.empty) {
+      return res.json({ message: 'No videos found for this patient', updated: 0 });
+    }
+
+    let updatedCount = 0;
+    const statusUpdates = [];
+
+    for (const doc of videosSnapshot.docs) {
+      const videoData = doc.data();
+      const videoId = doc.id;
+      
+      // Skip if already ready
+      if (videoData.processingStatus === 'ready') {
+        continue;
+      }
+
+      // Try to get status from TwelveLabs
+      const taskId = videoData.twelveLabsTaskId || videoData.twelveLabsVideoId;
+      if (!taskId) {
+        continue;
+      }
+
+      try {
+        let status = 'unknown';
+        let progress = 0;
+        let twelveLabsVideoId = videoData.twelveLabsVideoId;
+
+        // Try tasks.retrieve first
+        try {
+          const task = await twelveLabsClient.tasks.retrieve(taskId);
+          status = task.status || 'processing';
+          progress = task.process?.percent_complete ?? task.progress ?? 0;
+          twelveLabsVideoId = task.video_id || twelveLabsVideoId;
+          console.log(`[${videoId}] Task status:`, { status, progress, twelveLabsVideoId });
+        } catch (taskErr) {
+          // Fallback to videos.retrieve
+          try {
+            const video = await twelveLabsClient.videos.retrieve(process.env.TWELVELABS_PEGASUS_INDEX_ID, taskId);
+            twelveLabsVideoId = video._id || video.id || taskId;
+            status = video.indexed_at ? 'ready' : (video.status || 'processing');
+            progress = video.indexed_at ? 100 : 0;
+            console.log(`[${videoId}] Video status:`, { status, progress, twelveLabsVideoId });
+          } catch (videoErr) {
+            console.log(`[${videoId}] Both task and video retrieve failed:`, videoErr.message);
+            continue;
+          }
+        }
+
+        // Update Firestore
+        const updateData = {
+          processingStatus: status,
+          processingProgress: progress,
+        };
+        if (twelveLabsVideoId) {
+          updateData.twelveLabsVideoId = twelveLabsVideoId;
+        }
+
+        await doc.ref.update(updateData);
+        updatedCount++;
+        
+        statusUpdates.push({
+          videoId,
+          title: videoData.title,
+          oldStatus: videoData.processingStatus,
+          newStatus: status,
+          progress: progress
+        });
+
+      } catch (error) {
+        console.error(`Error updating status for video ${videoId}:`, error.message);
+      }
+    }
+
+    console.log(`✅ Updated ${updatedCount} video statuses`);
+    
+    res.json({
+      success: true,
+      message: `Updated ${updatedCount} video statuses`,
+      updated: updatedCount,
+      statusUpdates: statusUpdates
+    });
+
+  } catch (error) {
+    console.error('❌ Error updating video statuses:', error);
+    res.status(500).json({ error: 'Failed to update video statuses', details: error.message });
+  }
+});
+
+// Get patient's videos
+app.get("/patient/:patientId/videos", async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    
+    const videosSnapshot = await db.collection('videos')
+      .where('patientId', '==', patientId)
+      .orderBy('uploadedAt', 'desc')
+      .get();
+    
+    const videos = videosSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      uploadedAt: doc.data().uploadedAt?.toDate?.()?.toISOString() || null
+    }));
+
+    res.json({
+      patientId,
+      videos,
+      totalVideos: videos.length
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching patient videos:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch videos',
+      details: error.message 
+    });
   }
 });
 
@@ -345,6 +984,8 @@ app.get('/health', (req, res) => {
     geminiApiConfigured: !!process.env.GEMINI_API_KEY
   });
 });
+
+
 
 // Session management endpoints
 app.delete('/chat/:patientId', (req, res) => {

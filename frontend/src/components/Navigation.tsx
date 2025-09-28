@@ -87,15 +87,7 @@ export default function Navigation() {
             </NavigationMenuTrigger>
           </NavigationMenuItem>
 
-          <NavigationMenuItem>
-            <NavigationMenuTrigger
-              className={`w-full font-semibold rounded-full transition-colors bg-transparent "
-  ${activeTab === "dynamic-questionnaire" ? "text-primary " : "text-black"}`}
-              onClick={() => handleTabChange("dynamic-questionnaire")}
-            >
-              Dynamic Questionnaire
-            </NavigationMenuTrigger>
-          </NavigationMenuItem>
+
 
           <NavigationMenuItem>
             <NavigationMenuTrigger
@@ -137,7 +129,11 @@ export default function Navigation() {
         }`}
       >
         {activeTab === "meeting-search" && <MeetingSearch />}
-        {activeTab === "patient-questionnaire" && <PatientQuestionnaire />}
+        {activeTab === "patient-questionnaire" && (
+          <PatientQuestionnaire 
+            onComplete={() => handleTabChange("dynamic-questionnaire")}
+          />
+        )}
         {activeTab === "patient-history" && <PatientHistory />}
         {activeTab === "patient-tests" && <PatientTests />}
         {activeTab === "dynamic-questionnaire" && <DynamicQuestionnaire />}
