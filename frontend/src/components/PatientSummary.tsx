@@ -17,10 +17,16 @@ import {
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "./ui/dialog";
 import { useAuth } from "../hooks/useAuth";
 import { db } from "./firebase";
-import { doc, setDoc, getDoc} from "firebase/firestore";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 
 interface PatientSummaryProps {
   pid: string | null;
@@ -64,16 +70,18 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
   const [doctorInsight, setDoctorInsight] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle");
-  
+  const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">(
+    "idle"
+  );
+
   // Treatment management state
   const [treatments, setTreatments] = useState<Treatment[]>(initialTreatments);
   const [unsavedTreatments, setUnsavedTreatments] = useState<Treatment[]>([]); // new
   const [showAddTreatmentDialog, setShowAddTreatmentDialog] = useState(false);
   const [newTreatmentName, setNewTreatmentName] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [patientData, setPatientData] = useState<{ 
-    insuranceProvider?: string; 
+  const [patientData, setPatientData] = useState<{
+    insuranceProvider?: string;
     insuranceMemberId?: string;
     firstName?: string;
     lastName?: string;
@@ -83,11 +91,13 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
 
   const loadDoctorInsight = useCallback(async () => {
     if (!pid) return;
-    
+
     setIsLoading(true);
     try {
-      const response = await fetch(`http://localhost:3000/patient/${pid}/insights`);
-      
+      const response = await fetch(
+        `http://localhost:3000/patient/${pid}/insights`
+      );
+
       if (response.ok) {
         const data = await response.json();
         setDoctorInsight(data.doctorInsight || "");
@@ -108,14 +118,16 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
   // Load patient data for insurance information
   const loadPatientData = useCallback(async () => {
     if (!pid) return;
-    
+
     try {
       const response = await fetch(`http://localhost:3000/patient/${pid}/data`);
       if (response.ok) {
         const data = await response.json();
         setPatientData(data);
       } else if (response.status === 404) {
-        console.log("Patient data not found, patient may need to complete their profile");
+        console.log(
+          "Patient data not found, patient may need to complete their profile"
+        );
         setPatientData(null);
       }
     } catch (error) {
@@ -127,13 +139,17 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
   // Load questionnaire summary
   const loadQuestionnaireSummary = useCallback(async () => {
     if (!pid) return;
-    
+
     setIsLoadingSummary(true);
     try {
-      const response = await fetch(`http://localhost:3000/patient/${pid}/summary`);
+      const response = await fetch(
+        `http://localhost:3000/patient/${pid}/summary`
+      );
       if (response.ok) {
         const data = await response.json();
-        setQuestionnaireSummary(data.latestSummary || "No questionnaire summary available yet.");
+        setQuestionnaireSummary(
+          data.latestSummary || "No questionnaire summary available yet."
+        );
       } else if (response.status === 404) {
         setQuestionnaireSummary("No questionnaire summary available yet.");
       }
@@ -170,34 +186,47 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
       loadQuestionnaireSummary();
       loadTreatments();
     }
-  }, [pid, currentUser, loadDoctorInsight, loadPatientData, loadQuestionnaireSummary, loadTreatments]);
+  }, [
+    pid,
+    currentUser,
+    loadDoctorInsight,
+    loadPatientData,
+    loadQuestionnaireSummary,
+    loadTreatments,
+  ]);
 
   const saveDoctorInsight = async () => {
     if (!pid || !currentUser) return;
-    
+
     setIsSaving(true);
     setSaveStatus("idle");
-    
+
     try {
-      const response = await fetch(`http://localhost:3000/patient/${pid}/insights`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          doctorInsight,
-          doctorId: currentUser.uid,
-        }),
-      });
+      const response = await fetch(
+        `http://localhost:3000/patient/${pid}/insights`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            doctorInsight,
+            doctorId: currentUser.uid,
+          }),
+        }
+      );
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Network error' }));
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: "Network error" }));
+        throw new Error(
+          errorData.error || `HTTP ${response.status}: ${response.statusText}`
+        );
       }
 
       setSaveStatus("success");
       setTimeout(() => setSaveStatus("idle"), 3000); // Clear success message after 3 seconds
-      
     } catch (error) {
       console.error("Error saving doctor's insight:", error);
       setSaveStatus("error");
@@ -210,26 +239,30 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
   // Add treatment with AI analysis
   const addTreatment = async () => {
     if (!newTreatmentName.trim() || !doctorInsight) {
-      alert("Please enter a treatment name and ensure doctor's insight is available.");
+      alert(
+        "Please enter a treatment name and ensure doctor's insight is available."
+      );
       return;
     }
 
     if (!patientData?.insuranceProvider || !patientData?.insuranceMemberId) {
-      alert("Patient insurance information is missing. Please ensure the patient has completed their insurance details in their profile.");
+      alert(
+        "Patient insurance information is missing. Please ensure the patient has completed their insurance details in their profile."
+      );
       return;
     }
 
     setIsAnalyzing(true);
-    
+
     try {
       // Get insurance data from patient record
       const insuranceProvider = patientData.insuranceProvider;
       const memberId = patientData.insuranceMemberId;
-      
-      const response = await fetch('http://localhost:3000/analyze-medication', {
-        method: 'POST',
+
+      const response = await fetch("http://localhost:3000/analyze-medication", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           insuranceProvider,
@@ -244,24 +277,30 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
       }
 
       const aiAnalysis: GeminiResponse = await response.json();
-      
+
       // Determine coverage based on estimated copay
-      const determineCoverage = (copay: string): "Full Coverage" | "Copay" | "No Coverage" => {
+      const determineCoverage = (
+        copay: string
+      ): "Full Coverage" | "Copay" | "No Coverage" => {
         const amount = copay.toLowerCase();
-        if (amount.includes('$0') || amount.includes('free')) return "Full Coverage";
-        if (amount.includes('$') && !amount.includes('not covered')) return "Copay";
+        if (amount.includes("$0") || amount.includes("free"))
+          return "Full Coverage";
+        if (amount.includes("$") && !amount.includes("not covered"))
+          return "Copay";
         return "No Coverage";
       };
 
       const newTreatment: Treatment = {
         id: Date.now().toString(),
         treatmentName: newTreatmentName,
-        coverage: determineCoverage(aiAnalysis.prescribedMedicationDetails.estimatedCopay),
+        coverage: determineCoverage(
+          aiAnalysis.prescribedMedicationDetails.estimatedCopay
+        ),
         alternatives: aiAnalysis.costEffectiveAlternatives,
         originalPrescription: newTreatmentName,
       };
 
-      setUnsavedTreatments(prev => [...prev, newTreatment]);
+      setUnsavedTreatments((prev) => [...prev, newTreatment]);
       setNewTreatmentName("");
       setShowAddTreatmentDialog(false);
     } catch (error) {
@@ -280,7 +319,7 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
       await setDoc(
         doc(db, `prescription/${pid}`),
         { entries: updatedEntries },
-        { merge: true }   // ✅ ensures we don’t wipe the document
+        { merge: true } // ✅ ensures we don’t wipe the document
       );
       setTreatments(updatedEntries);
       setUnsavedTreatments([]);
@@ -291,6 +330,29 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
     }
   };
 
+  const deleteTreatment = async (id: string) => {
+    if (unsavedTreatments.some((t) => t.id === id)) {
+      setUnsavedTreatments((prev) => prev.filter((t) => t.id !== id));
+      return;
+    }
+
+    if (treatments.some((t) => t.id === id)) {
+      const updatedTreatments = treatments.filter((t) => t.id !== id);
+
+      try {
+        await setDoc(
+          doc(db, `prescription/${pid}`),
+          { entries: updatedTreatments },
+          { merge: true }
+        );
+        setTreatments(updatedTreatments);
+        alert("Treatment deleted!");
+      } catch (err) {
+        console.error("Failed to delete treatment:", err);
+        alert("Failed to delete treatment.");
+      }
+    }
+  };
 
   return (
     <div className="flex items-center justify-center py-8">
@@ -311,7 +373,9 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
                 <div className="max-h-[12rem] overflow-y-auto border rounded-md p-2 bg-slate-50 scrollbar-hide">
                   {isLoadingSummary ? (
                     <div className="flex items-center justify-center h-16">
-                      <span className="text-gray-500">Loading questionnaire summary...</span>
+                      <span className="text-gray-500">
+                        Loading questionnaire summary...
+                      </span>
                     </div>
                   ) : (
                     <div className="whitespace-pre-wrap">
@@ -330,9 +394,11 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
                     <span className="text-green-600 text-xs">✅ Saved</span>
                   )}
                   {saveStatus === "error" && (
-                    <span className="text-red-600 text-xs">❌ Error saving</span>
+                    <span className="text-red-600 text-xs">
+                      ❌ Error saving
+                    </span>
                   )}
-                  <Button 
+                  <Button
                     onClick={saveDoctorInsight}
                     disabled={isSaving}
                     className="text-xs px-3 py-1 h-auto"
@@ -351,11 +417,14 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
                 />
                 {isLoading && (
                   <div className="text-center text-gray-500 mt-2">
-                    <span className="text-xs">Loading previous insights...</span>
+                    <span className="text-xs">
+                      Loading previous insights...
+                    </span>
                   </div>
                 )}
                 <div className="text-xs text-gray-500 mt-2">
-                  💡 Your insights will be saved and can be updated anytime. This helps track your clinical reasoning for future reference.
+                  💡 Your insights will be saved and can be updated anytime.
+                  This helps track your clinical reasoning for future reference.
                 </div>
               </CardContent>
             </Card>
@@ -370,50 +439,75 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Treatment Name</TableHead>
-                    <TableHead>Coverage Option</TableHead>
+                    <TableHead className="w-3/5">Treatment Name</TableHead>
+                    <TableHead className="w-1/5">Coverage Option</TableHead>
+                    <TableHead className="text-right"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {[...treatments, ...unsavedTreatments].length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={2} className="text-center text-gray-500 py-8">
+                      <TableCell
+                        colSpan={3}
+                        className="text-center text-gray-500 py-8"
+                      >
                         No treatments added yet.
                       </TableCell>
                     </TableRow>
                   )}
 
                   {/* Saved treatments */}
-                  {treatments.map(t => (
+                  {treatments.map((t) => (
                     <TableRow key={t.id}>
                       <TableCell>{t.treatmentName}</TableCell>
                       <TableCell>{t.coverage}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="destructive"
+                          onClick={() => deleteTreatment(t.id)}
+                        >
+                          X
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
 
                   {/* Unsaved treatments */}
-                  {unsavedTreatments.map(t => (
+                  {unsavedTreatments.map((t) => (
                     <TableRow key={t.id} className="bg-yellow-50">
                       <TableCell>{t.treatmentName} (Unsaved)</TableCell>
                       <TableCell>{t.coverage}</TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="destructive"
+                          onClick={() => deleteTreatment(t.id)}
+                        >
+                          X
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
               <div className="mt-4 flex justify-end">
-                <Button onClick={saveTreatments} disabled={unsavedTreatments.length === 0}>
+                <Button
+                  onClick={saveTreatments}
+                  disabled={unsavedTreatments.length === 0}
+                >
                   Save New Treatments
                 </Button>
               </div>
             </CardContent>
           </Card>
 
-
           {/* Alternative Treatments */}
           <Card>
             <CardHeader className="w-full flex justify-between items-center">
               <CardTitle className="text-lg">Alternative Treatments</CardTitle>
-              <Dialog open={showAddTreatmentDialog} onOpenChange={setShowAddTreatmentDialog}>
+              <Dialog
+                open={showAddTreatmentDialog}
+                onOpenChange={setShowAddTreatmentDialog}
+              >
                 <DialogTrigger asChild>
                   <Button className="text-sm">Add Treatment</Button>
                 </DialogTrigger>
@@ -423,7 +517,9 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
                   </DialogHeader>
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="treatment-name">Treatment/Medication Name</Label>
+                      <Label htmlFor="treatment-name">
+                        Treatment/Medication Name
+                      </Label>
                       <Input
                         id="treatment-name"
                         value={newTreatmentName}
@@ -433,17 +529,19 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
                       />
                     </div>
                     <div className="text-sm text-gray-600">
-                      💡 Our AI will analyze this medication and suggest cost-effective alternatives based on the patient's insurance plan.
+                      💡 Our AI will analyze this medication and suggest
+                      cost-effective alternatives based on the patient's
+                      insurance plan.
                     </div>
                     <div className="flex justify-end gap-2">
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         onClick={() => setShowAddTreatmentDialog(false)}
                         disabled={isAnalyzing}
                       >
                         Cancel
                       </Button>
-                      <Button 
+                      <Button
                         onClick={addTreatment}
                         disabled={isAnalyzing || !newTreatmentName.trim()}
                       >
@@ -464,91 +562,113 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {[...treatments, ...unsavedTreatments].length === 0 ? (
+                  {[...unsavedTreatments].length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={3} className="text-center text-gray-500 py-8">
-                        No treatments with alternatives yet. Add a treatment to see AI-generated alternatives.
+                      <TableCell
+                        colSpan={3}
+                        className="text-center text-gray-500 py-8"
+                      >
+                        No treatments with alternatives yet. Add a treatment to
+                        see AI-generated alternatives.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    [...treatments, ...unsavedTreatments].flatMap((treatment) =>
-                      (treatment.alternatives ?? []).map((alternative, index) => (
-                        <TableRow key={`${treatment.id}-${index}`}>
-                          <TableCell className="w-1/3 font-medium">
-                            <div className="space-y-1">
-                              <div>{alternative.medicationName}</div>
-                              <div className="text-xs text-gray-500">
-                                Alternative to: {treatment.originalPrescription}
+                    [...unsavedTreatments].flatMap((treatment) =>
+                      (treatment.alternatives ?? []).map(
+                        (alternative, index) => (
+                          <TableRow key={`${treatment.id}-${index}`}>
+                            <TableCell className="w-1/3 font-medium">
+                              <div className="space-y-1">
+                                <div>{alternative.medicationName}</div>
+                                <div className="text-xs text-gray-500">
+                                  Alternative to:{" "}
+                                  {treatment.originalPrescription}
+                                </div>
                               </div>
-                              <div className="text-xs text-gray-600 italic">
-                                {alternative.rationale}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="w-1/3">
-                            <div className="space-y-1">
-                              <span
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                  alternative.formularyTier.includes("Tier 1") ||
-                                  alternative.estimatedCopay.includes("$0")
-                                    ? "bg-green-100 text-green-800"
-                                    : alternative.estimatedCopay.includes("$") &&
+                            </TableCell>
+                            <TableCell className="w-1/3">
+                              <div className="space-y-1">
+                                <span
+                                  className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                    alternative.formularyTier.includes(
+                                      "Tier 1"
+                                    ) ||
+                                    alternative.estimatedCopay.includes("$0")
+                                      ? "bg-green-100 text-green-800"
+                                      : alternative.estimatedCopay.includes(
+                                          "$"
+                                        ) &&
+                                        !alternative.estimatedCopay.includes(
+                                          "No"
+                                        )
+                                      ? "bg-yellow-100 text-yellow-800"
+                                      : "bg-red-100 text-red-800"
+                                  }`}
+                                >
+                                  {alternative.formularyTier.includes(
+                                    "Tier 1"
+                                  ) || alternative.estimatedCopay.includes("$0")
+                                    ? "Full Coverage"
+                                    : alternative.estimatedCopay.includes(
+                                        "$"
+                                      ) &&
                                       !alternative.estimatedCopay.includes("No")
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : "bg-red-100 text-red-800"
-                                }`}
-                              >
-                                {alternative.formularyTier.includes("Tier 1") ||
-                                alternative.estimatedCopay.includes("$0")
-                                  ? "Full Coverage"
-                                  : alternative.estimatedCopay.includes("$") &&
-                                    !alternative.estimatedCopay.includes("No")
-                                  ? "Copay"
-                                  : "No Coverage"}
-                              </span>
-                              <div className="text-xs text-gray-600">
-                                {alternative.estimatedCopay}
+                                    ? "Copay"
+                                    : "No Coverage"}
+                                </span>
+                                <div className="text-xs text-gray-600">
+                                  {alternative.estimatedCopay}
+                                </div>
                               </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="w-1/3 flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setUnsavedTreatments((prev) => {
-                                  const updated = [...prev];
-                                  const idx = updated.findIndex((u) => u.id === treatment.id);
-                                  if (idx !== -1) {
-                                    updated[idx] = {
-                                      ...updated[idx],
-                                      treatmentName: alternative.medicationName,
-                                      coverage:
-                                        alternative.formularyTier.includes("Tier 1") ||
-                                        alternative.estimatedCopay.includes("$0")
-                                          ? "Full Coverage"
-                                          : alternative.estimatedCopay.includes("$")
-                                          ? "Copay"
-                                          : "No Coverage",
-                                      alternatives: [], // clear after choosing
-                                    };
-                                  }
-                                  return updated;
-                                });
-                              }}
-                            >
-                              Choose This
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => alert(alternative.rationale)}
-                            >
-                              View Rationale
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
+                            </TableCell>
+                            <TableCell className="w-1/3 flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setUnsavedTreatments((prev) => {
+                                    const updated = [...prev];
+                                    const idx = updated.findIndex(
+                                      (u) => u.id === treatment.id
+                                    );
+                                    if (idx !== -1) {
+                                      updated[idx] = {
+                                        ...updated[idx],
+                                        treatmentName:
+                                          alternative.medicationName,
+                                        coverage:
+                                          alternative.formularyTier.includes(
+                                            "Tier 1"
+                                          ) ||
+                                          alternative.estimatedCopay.includes(
+                                            "$0"
+                                          )
+                                            ? "Full Coverage"
+                                            : alternative.estimatedCopay.includes(
+                                                "$"
+                                              )
+                                            ? "Copay"
+                                            : "No Coverage",
+                                        alternatives: [], // clear after choosing
+                                      };
+                                    }
+                                    return updated;
+                                  });
+                                }}
+                              >
+                                Choose This
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => alert(alternative.rationale)}
+                              >
+                                View Rationale
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      )
                     )
                   )}
                 </TableBody>
