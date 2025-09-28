@@ -1,10 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { auth, fetchUserFiles, type UserFile } from "./firebase";
 
@@ -37,43 +32,58 @@ const PTestsDoctorView: React.FC<PTestsProps> = ({ pid }) => {
     <div className="flex items-center justify-center py-8">
       <Card className="w-full max-w-5xl">
         <CardHeader>
-          <CardTitle className="font-bold text-xl">Patient Test Reports</CardTitle>
+          <CardTitle className="font-bold text-xl">
+            Patient Test Reports
+          </CardTitle>
         </CardHeader>
 
         <CardContent>
           <div className="flex flex-col gap-4">
-
             {uploadedFiles.length > 0 && (
               <div className="mt-6">
                 <h3 className="font-semibold mb-4">Uploaded Reports:</h3>
-                <div className="flex flex-col gap-6">
-                  {uploadedFiles.map((file) => (
-                    <div
-                      key={file.name}
-                      className="flex items-start justify-between border p-3 rounded shadow-sm"
-                    >
-                      <div className="flex flex-col gap-2">
-                        {file.name.endsWith(".pdf") ? (
-                          <iframe
-                            src={file.url}
-                            title={file.name}
-                            className="w-full max-w-2xl h-96 border rounded"
-                          />
-                        ) : (
-                          <img
-                            src={file.url}
-                            alt={file.name}
-                            className="max-w-2xl h-96 object-contain border rounded"
-                          />
-                        )}
+                <div className="w-full overflow-x-auto">
+                  <div className="flex gap-4 min-w-max">
+                    {uploadedFiles.map((file) => (
+                      <div
+                        key={file.name}
+                        className="min-w-[280px] max-w-xs border rounded shadow-sm p-3 flex flex-col"
+                      >
+                        {/* Preview */}
+                        <div className="flex-1 flex items-center justify-center bg-gray-50 rounded">
+                          {file.name.endsWith(".pdf") ? (
+                            <iframe
+                              src={file.url}
+                              title={file.name}
+                              className="w-full h-48 border rounded"
+                            />
+                          ) : (
+                            <img
+                              src={file.url}
+                              alt={file.name}
+                              className="max-h-48 object-contain"
+                            />
+                          )}
+                        </div>
+
+                        {/* Filename */}
+                        <p className="mt-2 text-sm text-center truncate">
+                          {file.name.split("/").pop()}
+                        </p>
+
+                        {/* Buttons at bottom */}
+                        <div className="mt-3 flex justify-between gap-2">
+                          <Button
+                            size="sm"
+                            className="flex-1"
+                            onClick={() => setFullScreenFile(file)}
+                          >
+                            Full Screen
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex flex-col gap-2 ml-4">
-                        <Button onClick={() => setFullScreenFile(file)}>
-                          Full Screen
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -108,7 +118,6 @@ const PTestsDoctorView: React.FC<PTestsProps> = ({ pid }) => {
           </div>
         </div>
       )}
-
     </div>
   );
 };
