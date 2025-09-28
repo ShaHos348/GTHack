@@ -11,7 +11,7 @@ const { TwelveLabs } = require('twelvelabs-js');
 const multer = require('multer');
 
 admin.initializeApp({
-  credential: admin.credential.cert(require('../../frontend/serviceKey.json')),
+  credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
 });
 const db = admin.firestore();
 
