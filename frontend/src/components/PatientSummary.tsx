@@ -634,9 +634,21 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
                                 </div>
                               </div>
                             </TableCell>
-                            <TableCell className="w-1/3 flex gap-2">
+                            <TableCell className="w-1/3 flex gap-2 justify-start">
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button size="sm">View Rationale</Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>Rationale</DialogTitle>
+                                    <DialogDescription>
+                                      {alternative.rationale}
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                </DialogContent>
+                              </Dialog>
                               <Button
-                                variant="outline"
                                 size="sm"
                                 onClick={() => {
                                   setUnsavedTreatments((prev) => {
@@ -671,19 +683,6 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
                               >
                                 Choose This
                               </Button>
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button size="sm">View Rationale</Button>
-                                </DialogTrigger>
-                                <DialogContent>
-                                  <DialogHeader>
-                                    <DialogTitle>Rationale</DialogTitle>
-                                    <DialogDescription>
-                                      {alternative.rationale}
-                                    </DialogDescription>
-                                  </DialogHeader>
-                                </DialogContent>
-                              </Dialog>
                             </TableCell>
                           </TableRow>
                         )

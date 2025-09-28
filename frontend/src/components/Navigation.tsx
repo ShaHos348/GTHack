@@ -14,6 +14,7 @@ import DynamicQuestionnaire from "./DynamicQuestionnaire";
 import { logout } from "./firebase";
 import { useNavigate } from "react-router-dom";
 import MeetingSearch from "./MeetingSearch";
+import Logo from "../../public/Logo.png"
 
 export default function Navigation() {
   const [activeTab, setActiveTab] = React.useState("patient-questionnaire");
@@ -47,6 +48,13 @@ export default function Navigation() {
         className="sticky top-4 z-50 mx-auto w-3/4 bg-purple-100 text-card-foreground border border-gray-200 rounded-full shadow-sm flex items-center justify-center px-4 py-3"
       >
         <NavigationMenuList>
+           <NavigationMenuItem>
+              <img 
+                src={Logo} 
+                alt="Logo" 
+                className="h-8 w-8 object-contain" 
+              />
+          </NavigationMenuItem>
           <NavigationMenuItem>
             <NavigationMenuTrigger
               className={`w-full font-semibold rounded-full transition-colors bg-transparent "

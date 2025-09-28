@@ -20,9 +20,9 @@ function DoctorDashboard() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-start pt-12">
-      <div className="w-4/5 mx-auto flex justify-start">
+      <div className="w-4/5 mx-auto flex mb-1.5">
         <Button
-          className="font-semibold"
+          className="font-semibold bg-red-500"
           onClick={() => setConfirmSignout(true)}
         >
           Sign Out
