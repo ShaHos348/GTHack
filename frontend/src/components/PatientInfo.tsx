@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import { auth, db } from "./firebase";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { logout } from "./firebase";
+import PatientSummary from "./PatientSummary";
 
 export default function PatientInfo() {
   const navigate = useNavigate();
@@ -22,7 +23,7 @@ export default function PatientInfo() {
 
   const uid = useMemo(() => auth.currentUser?.uid ?? null, [auth.currentUser]);
 
-  const [activeTab, setActiveTab] = React.useState("patient-history");
+  const [activeTab, setActiveTab] = React.useState("patient-summary");
   const [confirmSignout, setConfirmSignout] = React.useState(false);
   const [displayedTab, setDisplayedTab] = React.useState(activeTab);
   const [fade, setFade] = React.useState(true);
@@ -88,6 +89,26 @@ export default function PatientInfo() {
           <NavigationMenuItem>
             <NavigationMenuTrigger
               className={`w-full font-semibold rounded-full transition-colors bg-transparent "
+  ${activeTab === "patient-prescriptions" ? "text-primary " : "text-black"}`}
+              onClick={() => navigate("")}
+            >
+              Dashboard
+            </NavigationMenuTrigger>
+          </NavigationMenuItem>
+
+          <NavigationMenuItem>
+            <NavigationMenuTrigger
+              className={`w-full font-semibold rounded-full transition-colors bg-transparent "
+  ${activeTab === "patient-summary" ? "text-primary " : "text-black"}`}
+              onClick={() => handleTabChange("patient-summary")}
+            >
+              Patient Summary
+            </NavigationMenuTrigger>
+          </NavigationMenuItem>
+
+          <NavigationMenuItem>
+            <NavigationMenuTrigger
+              className={`w-full font-semibold rounded-full transition-colors bg-transparent "
   ${activeTab === "patient-history" ? "text-primary " : "text-black"}`}
               onClick={() => handleTabChange("patient-history")}
             >
@@ -119,15 +140,6 @@ export default function PatientInfo() {
             </NavigationMenuTrigger>
           </NavigationMenuItem>
 
-          <NavigationMenuItem>
-            <NavigationMenuTrigger
-              className={`w-full font-semibold rounded-full transition-colors bg-transparent "
-  ${activeTab === "patient-prescriptions" ? "text-primary " : "text-black"}`}
-              onClick={() => handleTabChange("patient-prescriptions")}
-            >
-              Prescriptions
-            </NavigationMenuTrigger>
-          </NavigationMenuItem>
           <NavigationMenuItem>
             <NavigationMenuTrigger
               className={`w-full font-semibold rounded-full transition-colors bg-transparent "
@@ -179,13 +191,13 @@ export default function PatientInfo() {
             fade ? "opacity-100" : "opacity-0"
           }`}
         >
+          {activeTab === "patient-summary" && <PatientSummary pid={pid} />}
           {activeTab === "patient-history" && <PHDoctorView pid={pid} />}
-          {activeTab === "patient-questionnaire-results" && <PQResults pid={pid} />}
+          {activeTab === "patient-questionnaire-results" && (
+            <PQResults pid={pid} />
+          )}
           {activeTab === "patient-test-reports" && (
             <div>To be done: patient-test-reports</div>
-          )}
-          {activeTab === "patient-prescriptions" && (
-            <div>To be done: patient-prescriptions</div>
           )}
         </div>
       )}

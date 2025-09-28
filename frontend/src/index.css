@@ -19,3 +19,13 @@ body {
 .button {
   @apply bg-primary text-primary-foreground rounded-md px-4 py-2 hover:bg-blue-600;
 }
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none; /* IE & Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
+}
