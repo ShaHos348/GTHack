@@ -20,7 +20,7 @@ import { Label } from "./ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { useAuth } from "../hooks/useAuth";
 import { db } from "./firebase";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc} from "firebase/firestore";
 
 interface PatientSummaryProps {
   pid: string | null;
@@ -68,6 +68,7 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
   
   // Treatment management state
   const [treatments, setTreatments] = useState<Treatment[]>(initialTreatments);
+  const [unsavedTreatments, setUnsavedTreatments] = useState<Treatment[]>([]); // new
   const [showAddTreatmentDialog, setShowAddTreatmentDialog] = useState(false);
   const [newTreatmentName, setNewTreatmentName] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -144,14 +145,32 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
     }
   }, [pid]);
 
+  // Load existing treatments from Firestore
+  const loadTreatments = useCallback(async () => {
+    if (!pid) return;
+    try {
+      const docRef = doc(db, `prescription/${pid}`);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        setTreatments(docSnap.data().entries || []);
+      } else {
+        setTreatments([]);
+      }
+    } catch (err) {
+      console.error("Error loading treatments:", err);
+      setTreatments([]);
+    }
+  }, [pid]);
+
   // Load existing doctor's insight when component mounts
   useEffect(() => {
     if (pid && currentUser) {
       loadDoctorInsight();
       loadPatientData();
       loadQuestionnaireSummary();
+      loadTreatments();
     }
-  }, [pid, currentUser, loadDoctorInsight, loadPatientData, loadQuestionnaireSummary]);
+  }, [pid, currentUser, loadDoctorInsight, loadPatientData, loadQuestionnaireSummary, loadTreatments]);
 
   const saveDoctorInsight = async () => {
     if (!pid || !currentUser) return;
@@ -242,10 +261,9 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
         originalPrescription: newTreatmentName,
       };
 
-      setTreatments(prev => [...prev, newTreatment]);
+      setUnsavedTreatments(prev => [...prev, newTreatment]);
       setNewTreatmentName("");
       setShowAddTreatmentDialog(false);
-      
     } catch (error) {
       console.error("Error analyzing treatment:", error);
       alert("Failed to analyze treatment alternatives. Please try again.");
@@ -253,6 +271,26 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
       setIsAnalyzing(false);
     }
   };
+
+  // Save button: save **only unsaved treatments**
+  const saveTreatments = async () => {
+    if (!pid || unsavedTreatments.length === 0) return;
+    try {
+      const updatedEntries = [...treatments, ...unsavedTreatments];
+      await setDoc(
+        doc(db, `prescription/${pid}`),
+        { entries: updatedEntries },
+        { merge: true }   // ✅ ensures we don’t wipe the document
+      );
+      setTreatments(updatedEntries);
+      setUnsavedTreatments([]);
+      alert("Treatments saved!");
+    } catch (err) {
+      console.error("Failed to save treatments:", err);
+      alert("Failed to save treatments.");
+    }
+  };
+
 
   return (
     <div className="flex items-center justify-center py-8">
@@ -323,6 +361,7 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
             </Card>
           </div>
 
+          {/* Treatment Plan Summary */}
           <Card>
             <CardHeader className="w-full flex justify-between items-center">
               <CardTitle className="text-lg">Treatment Plan Summary</CardTitle>
@@ -331,41 +370,44 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-1/2">Treatment Name</TableHead>
-                    <TableHead className="w-1/2">Coverage Option</TableHead>
+                    <TableHead>Treatment Name</TableHead>
+                    <TableHead>Coverage Option</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {treatments.length === 0 ? (
+                  {[...treatments, ...unsavedTreatments].length === 0 && (
                     <TableRow>
                       <TableCell colSpan={2} className="text-center text-gray-500 py-8">
-                        No treatments added yet. Click "Add Treatment" to get started.
+                        No treatments added yet.
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    treatments.map((treatment) => (
-                      <TableRow key={treatment.id}>
-                        <TableCell className="w-1/2 font-medium">
-                          {treatment.treatmentName}
-                        </TableCell>
-                        <TableCell className="w-1/2">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            treatment.coverage === "Full Coverage" 
-                              ? "bg-green-100 text-green-800" 
-                              : treatment.coverage === "Copay"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-red-100 text-red-800"
-                          }`}>
-                            {treatment.coverage}
-                          </span>
-                        </TableCell>
-                      </TableRow>
-                    ))
                   )}
+
+                  {/* Saved treatments */}
+                  {treatments.map(t => (
+                    <TableRow key={t.id}>
+                      <TableCell>{t.treatmentName}</TableCell>
+                      <TableCell>{t.coverage}</TableCell>
+                    </TableRow>
+                  ))}
+
+                  {/* Unsaved treatments */}
+                  {unsavedTreatments.map(t => (
+                    <TableRow key={t.id} className="bg-yellow-50">
+                      <TableCell>{t.treatmentName} (Unsaved)</TableCell>
+                      <TableCell>{t.coverage}</TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
+              <div className="mt-4 flex justify-end">
+                <Button onClick={saveTreatments} disabled={unsavedTreatments.length === 0}>
+                  Save New Treatments
+                </Button>
+              </div>
             </CardContent>
           </Card>
+
 
           {/* Alternative Treatments */}
           <Card>
@@ -422,47 +464,88 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {treatments.length === 0 ? (
+                  {[...treatments, ...unsavedTreatments].length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={3} className="text-center text-gray-500 py-8">
                         No treatments with alternatives yet. Add a treatment to see AI-generated alternatives.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    treatments.flatMap((treatment) =>
-                      treatment.alternatives.map((alternative, index) => (
+                    [...treatments, ...unsavedTreatments].flatMap((treatment) =>
+                      (treatment.alternatives ?? []).map((alternative, index) => (
                         <TableRow key={`${treatment.id}-${index}`}>
                           <TableCell className="w-1/3 font-medium">
                             <div className="space-y-1">
                               <div>{alternative.medicationName}</div>
                               <div className="text-xs text-gray-500">
-                                Alternative to: {treatment.treatmentName}
+                                Alternative to: {treatment.originalPrescription}
+                              </div>
+                              <div className="text-xs text-gray-600 italic">
+                                {alternative.rationale}
                               </div>
                             </div>
                           </TableCell>
                           <TableCell className="w-1/3">
                             <div className="space-y-1">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                alternative.formularyTier.includes("Tier 1") || alternative.estimatedCopay.includes("$0")
-                                  ? "bg-green-100 text-green-800" 
-                                  : alternative.estimatedCopay.includes("$") && !alternative.estimatedCopay.includes("No")
-                                  ? "bg-yellow-100 text-yellow-800"
-                                  : "bg-red-100 text-red-800"
-                              }`}>
-                                {alternative.formularyTier.includes("Tier 1") || alternative.estimatedCopay.includes("$0")
-                                  ? "Full Coverage" 
-                                  : alternative.estimatedCopay.includes("$") && !alternative.estimatedCopay.includes("No")
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  alternative.formularyTier.includes("Tier 1") ||
+                                  alternative.estimatedCopay.includes("$0")
+                                    ? "bg-green-100 text-green-800"
+                                    : alternative.estimatedCopay.includes("$") &&
+                                      !alternative.estimatedCopay.includes("No")
+                                    ? "bg-yellow-100 text-yellow-800"
+                                    : "bg-red-100 text-red-800"
+                                }`}
+                              >
+                                {alternative.formularyTier.includes("Tier 1") ||
+                                alternative.estimatedCopay.includes("$0")
+                                  ? "Full Coverage"
+                                  : alternative.estimatedCopay.includes("$") &&
+                                    !alternative.estimatedCopay.includes("No")
                                   ? "Copay"
                                   : "No Coverage"}
                               </span>
-                              <div className="text-xs text-gray-600">{alternative.estimatedCopay}</div>
+                              <div className="text-xs text-gray-600">
+                                {alternative.estimatedCopay}
+                              </div>
                             </div>
                           </TableCell>
-                          <TableCell className="w-1/3">
-                            <div className="text-sm">
-                              <div className="font-medium text-blue-600">{alternative.formularyTier}</div>
-                              <div className="text-xs text-gray-600 mt-1">{alternative.rationale}</div>
-                            </div>
+                          <TableCell className="w-1/3 flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setUnsavedTreatments((prev) => {
+                                  const updated = [...prev];
+                                  const idx = updated.findIndex((u) => u.id === treatment.id);
+                                  if (idx !== -1) {
+                                    updated[idx] = {
+                                      ...updated[idx],
+                                      treatmentName: alternative.medicationName,
+                                      coverage:
+                                        alternative.formularyTier.includes("Tier 1") ||
+                                        alternative.estimatedCopay.includes("$0")
+                                          ? "Full Coverage"
+                                          : alternative.estimatedCopay.includes("$")
+                                          ? "Copay"
+                                          : "No Coverage",
+                                      alternatives: [], // clear after choosing
+                                    };
+                                  }
+                                  return updated;
+                                });
+                              }}
+                            >
+                              Choose This
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => alert(alternative.rationale)}
+                            >
+                              View Rationale
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))
@@ -472,37 +555,6 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
               </Table>
             </CardContent>
           </Card>
-          <Button
-            className="text-sm"
-            onClick={async () => {
-              if (!pid) return; // Use patient id
-
-              try {
-                const rows = document.querySelectorAll<HTMLTableRowElement>(
-                  "#alt-treatments tbody tr"
-                );
-
-                const entriesToSave = Array.from(rows).map((row, i) => {
-                  const select = row.querySelector<HTMLSelectElement>("select");
-                  const alternative = select?.value;
-                  return {
-                    treatmentName: alternative || treatments[i].treatmentName,
-                    coverage: treatments[i].coverage,
-                  };
-                });
-
-                await setDoc(doc(db, `prescription/${pid}`), {
-                  entries: entriesToSave,
-                });
-                alert("Prescriptions saved!");
-              } catch (err) {
-                console.error("Failed to save prescriptions:", err);
-                alert("Failed to save prescriptions.");
-              }
-            }}
-          >
-            Save
-          </Button>
         </CardContent>
       </Card>
     </div>
