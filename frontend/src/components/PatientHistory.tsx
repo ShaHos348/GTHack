@@ -8,10 +8,10 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
+} from "./ui/card";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Button } from "./ui/button";
 import { useNavigate } from "react-router-dom";
 
 type Values = {
@@ -25,7 +25,8 @@ type Values = {
   emergencyName: string;
   relationship: string;
   emergencyPhone: string;
-  insurance: string;
+  insuranceProvider: string;
+  insuranceMemberId: string;
   currentMedications: string;
   allergies: string;
   pastSurgeries: string;
@@ -46,7 +47,8 @@ const emptyValues: Values = {
   emergencyName: "",
   relationship: "",
   emergencyPhone: "",
-  insurance: "",
+  insuranceProvider: "",
+  insuranceMemberId: "",
   currentMedications: "",
   allergies: "",
   pastSurgeries: "",
@@ -318,13 +320,25 @@ const PatientHistory: React.FC = () => {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="insurance">Insurance + policy number</Label>
-                <Input
-                  id="insurance"
-                  value={values.insurance}
-                  onChange={update("insurance")}
-                />
+              <div className="flex gap-x-4">
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="insurance-provider">Insurance Provider</Label>
+                  <Input
+                    id="insurance-provider"
+                    value={values.insuranceProvider}
+                    onChange={update("insuranceProvider")}
+                    placeholder="e.g., Blue Cross Blue Shield, Aetna, United Healthcare"
+                  />
+                </div>
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="insurance-member-id">Insurance Member ID</Label>
+                  <Input
+                    id="insurance-member-id"
+                    value={values.insuranceMemberId}
+                    onChange={update("insuranceMemberId")}
+                    placeholder="e.g., ABC123456789"
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -374,7 +388,7 @@ const PatientHistory: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="lifestyle">Lifestyle</Label>
+                <Label htmlFor="lifestyle">Lifestyle (How often do you smoke, drink alcohol and exercise?)</Label>
                 <textarea
                   id="lifestyle"
                   value={values.lifestyle}

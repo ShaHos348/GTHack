@@ -73,6 +73,253 @@ app.get("/patient/:patientId/summary", async (req, res) => {
   }
 });
 
+// Get patient doctor insights
+app.get("/patient/:patientId/insights", async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const patientDoc = await db.collection('patients').doc(patientId).get();
+    
+    if (!patientDoc.exists) {
+      return res.status(404).json({ error: 'Patient not found' });
+    }
+    
+    const patientData = patientDoc.data();
+    
+    res.json({
+      patientId,
+      doctorInsight: patientData.doctorInsight || "",
+      doctorInsightUpdatedBy: patientData.doctorInsightUpdatedBy || null,
+      doctorInsightUpdatedAt: patientData.doctorInsightUpdatedAt || null,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update patient doctor insights
+app.put("/patient/:patientId/insights", async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const { doctorInsight, doctorId } = req.body;
+    
+    if (!doctorInsight && doctorInsight !== "") {
+      return res.status(400).json({ error: 'Doctor insight is required' });
+    }
+    
+    const patientRef = db.collection('patients').doc(patientId);
+    const patientDoc = await patientRef.get();
+    
+    const updateData = {
+      doctorInsight,
+      doctorInsightUpdatedBy: doctorId,
+      doctorInsightUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+    
+    if (patientDoc.exists) {
+      await patientRef.update(updateData);
+    } else {
+      await patientRef.set({
+        ...updateData,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+    
+    res.json({ 
+      success: true, 
+      message: 'Doctor insight updated successfully',
+      patientId 
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get full patient data including insurance information
+app.get("/patient/:patientId/data", async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const patientDoc = await db.collection('patients').doc(patientId).get();
+    
+    if (!patientDoc.exists) {
+      return res.status(404).json({ error: 'Patient not found' });
+    }
+    
+    const patientData = patientDoc.data();
+    
+    res.json({
+      patientId,
+      insuranceProvider: patientData.insuranceProvider || null,
+      insuranceMemberId: patientData.insuranceMemberId || null,
+      firstName: patientData.firstName || null,
+      lastName: patientData.lastName || null,
+      // Include other fields as needed
+      ...patientData
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// AI-powered medication analysis endpoint
+app.post("/analyze-medication", async (req, res) => {
+  try {
+    const { insuranceProvider, memberId, diagnosis, prescription } = req.body;
+    
+    if (!insuranceProvider || !memberId || !diagnosis || !prescription) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: insuranceProvider, memberId, diagnosis, prescription' 
+      });
+    }
+
+    const prompt = `You are a Clinical Pharmacy Assistant AI. Analyze the user's medication request and provide cost-effective alternatives depending on the doctor's diagnosis and patient insurance information.
+
+User Input:
+Insurance: ${insuranceProvider}
+Member ID: ${memberId}
+Diagnosis: ${diagnosis}
+Prescription: ${prescription}
+
+Analyze the prescribed medication and suggest up to 3 therapeutically similar alternatives that are commonly found in lower-cost formulary tiers.`;
+
+    console.log('🔍 Analyzing medication with AI:', { insuranceProvider, memberId, diagnosis, prescription });
+
+    const responseSchema = {
+      type: 'object',
+      required: ['querySummary', 'prescribedMedicationDetails', 'costEffectiveAlternatives'],
+      properties: {
+        querySummary: {
+          type: 'object',
+          required: ['insuranceProvider', 'memberId', 'diagnosis'],
+          properties: {
+            insuranceProvider: {
+              type: 'string',
+            },
+            memberId: {
+              type: 'string',
+            },
+            diagnosis: {
+              type: 'string',
+            },
+          },
+        },
+        prescribedMedicationDetails: {
+          type: 'object',
+          required: ['medicationName', 'activeIngredient', 'typicalTier', 'estimatedCopay'],
+          properties: {
+            medicationName: {
+              type: 'string',
+            },
+            activeIngredient: {
+              type: 'string',
+            },
+            typicalTier: {
+              type: 'string',
+            },
+            estimatedCopay: {
+              type: 'string',
+            },
+          },
+        },
+        costEffectiveAlternatives: {
+          type: 'array',
+          maxItems: 3,
+          items: {
+            type: 'object',
+            required: ['medicationName', 'formularyTier', 'estimatedCopay', 'rationale'],
+            properties: {
+              medicationName: {
+                type: 'string',
+              },
+              formularyTier: {
+                type: 'string',
+              },
+              estimatedCopay: {
+                type: 'string',
+              },
+              rationale: {
+                type: 'string',
+              },
+            },
+          },
+        },
+      },
+    };
+
+    const result = await ai.models.generateContentStream({
+      model: 'gemini-2.5-flash',
+      config: {
+        temperature: 0.2,
+        thinkingConfig: {
+          thinkingBudget: 8000,
+        },
+        responseMimeType: 'application/json',
+        responseSchema,
+      },
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: prompt }],
+        },
+      ],
+    });
+
+    let responseText = '';
+    for await (const chunk of result) {
+      if (chunk.text) {
+        responseText += chunk.text;
+      }
+    }
+    
+    console.log('🤖 Raw AI Response:', responseText);
+    
+    try {
+      const aiAnalysis = JSON.parse(responseText);
+      
+      // Validate the response structure
+      if (!aiAnalysis.costEffectiveAlternatives || !Array.isArray(aiAnalysis.costEffectiveAlternatives)) {
+        throw new Error('Invalid AI response structure');
+      }
+
+      console.log('✅ Successfully analyzed medication:', aiAnalysis);
+      res.json(aiAnalysis);
+      
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', parseError);
+      console.error('Raw response was:', responseText);
+      
+      // Fallback response
+      res.json({
+        querySummary: {
+          insuranceProvider,
+          memberId,
+          diagnosis
+        },
+        prescribedMedicationDetails: {
+          medicationName: prescription,
+          activeIngredient: "Unknown",
+          typicalTier: "Tier 3 (Brand)",
+          estimatedCopay: "$30 - $60"
+        },
+        costEffectiveAlternatives: [
+          {
+            medicationName: "Generic equivalent (if available)",
+            formularyTier: "Tier 1 (Generic)",
+            estimatedCopay: "$0 - $15",
+            rationale: "Generic versions are typically the most cost-effective option."
+          }
+        ]
+      });
+    }
+
+  } catch (error) {
+    console.error('Error in medication analysis:', error);
+    res.status(500).json({ 
+      error: 'Failed to analyze medication alternatives',
+      details: error.message 
+    });
+  }
+});
+
 // Session cleanup - remove sessions older than 30 minutes
 setInterval(() => {
   const now = Date.now();

@@ -1,17 +1,17 @@
 import * as React from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   NavigationMenu,
   NavigationMenuList,
   NavigationMenuItem,
   NavigationMenuTrigger,
-} from "@/components/ui/navigation-menu";
+} from "./ui/navigation-menu";
 import PHDoctorView from "./PHDoctorView";
 import PQResults from "./PQResults";
 import PTestsDoctorView from "./PTestsDoctorView";
 import { useEffect, useMemo, useState } from "react";
 import { auth, db } from "./firebase";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { logout } from "./firebase";
 import PatientSummary from "./PatientSummary";
 
@@ -26,7 +26,7 @@ export default function PatientInfo() {
 
   const [activeTab, setActiveTab] = React.useState("patient-summary");
   const [confirmSignout, setConfirmSignout] = React.useState(false);
-  const [displayedTab, setDisplayedTab] = React.useState(activeTab);
+
   const [fade, setFade] = React.useState(true);
   const [patientFound, setPatientFound] = useState(false);
   const [banner, setBanner] = useState<string>("");
