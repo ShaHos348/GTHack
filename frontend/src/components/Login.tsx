@@ -25,6 +25,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Link, useNavigate } from "react-router-dom";
+import sampleImage from "../assets/sampleimage.png";
+import hospitalBackgroundBlur from "../assets/hospitalbackgroundblur.jpg";
 
 const StorageTest: React.FC = () => {
   const navigate = useNavigate();
@@ -47,7 +49,6 @@ const StorageTest: React.FC = () => {
   };
   const routeForRole = (r: UserRole | null | undefined) =>
     r && ROUTES[r] ? ROUTES[r] : null;
-
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -76,33 +77,32 @@ const StorageTest: React.FC = () => {
   }, []);
 
   const handleEmailSignIn = async () => {
-  setStatus("Signing in…");
-  try {
-    await signInWithEmail(email.trim(), password);
-    const u = auth.currentUser;
-    if (!u) {
-      setStatus("❌ Sign-in failed: no user.");
-      return;
+    setStatus("Signing in…");
+    try {
+      await signInWithEmail(email.trim(), password);
+      const u = auth.currentUser;
+      if (!u) {
+        setStatus("❌ Sign-in failed: no user.");
+        return;
+      }
+
+      // fetch stored role
+      const r = await getUserRole(u.uid);
+
+      // if role exists → route; otherwise show the modal to set a role
+      const dest = routeForRole(r);
+      if (dest) {
+        setStatus("✅ Signed in");
+        navigate(dest);
+      } else {
+        setStatus("✅ Signed in — choose your role");
+        setShowRoleModal(true);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setStatus(`❌ Sign-in failed: ${err.code || err.message}`);
     }
-
-    // fetch stored role
-    const r = await getUserRole(u.uid);
-
-    // if role exists → route; otherwise show the modal to set a role
-    const dest = routeForRole(r);
-    if (dest) {
-      setStatus("✅ Signed in");
-      navigate(dest);
-    } else {
-      setStatus("✅ Signed in — choose your role");
-      setShowRoleModal(true);
-    }
-  } catch (err: any) {
-    console.error(err);
-    setStatus(`❌ Sign-in failed: ${err.code || err.message}`);
-  }
-};
-
+  };
 
   const handleEmailSignUp = async () => {
     setStatus("Creating account…");
@@ -151,75 +151,92 @@ const StorageTest: React.FC = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen py-14">
-      <Card className="w-1/2">
-        <CardHeader>
-          <CardTitle>Login to your account</CardTitle>
-          <CardDescription>
-            Enter your email below to login to your account
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form>
-            <div className="flex flex-col gap-6">
-              <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="m@example.com"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <div className="flex items-center">
-                  <Label htmlFor="password">Password</Label>
-                  <a
-                    href="#"
-                    className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
-                  >
-                    Forgot your password?
-                  </a>
+    <div
+      className="flex items-center justify-center min-h-screen py-14 "
+      style={{
+        backgroundImage: `url(${hospitalBackgroundBlur})`,
+        backgroundSize: "cover",
+      }}
+    >
+      <Card className="w-5/6 flex">
+        <CardContent className="flex gap-4">
+          <Card
+            className="w-3/5 bg-center bg-no-repeat"
+            style={{
+              backgroundImage: `url(${sampleImage})`,
+              backgroundSize: "cover",
+            }}
+          ></Card>
+          <Card className="w-2/5 ">
+            <CardHeader>
+              <CardTitle>Login to your account</CardTitle>
+              <CardDescription>
+                Enter your email below to login to your account
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form>
+                <div className="flex flex-col gap-6">
+                  <div className="grid gap-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="m@example.com"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <div className="flex items-center">
+                      <Label htmlFor="password">Password</Label>
+                      <a
+                        href="#"
+                        className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
+                      >
+                        Forgot your password?
+                      </a>
+                    </div>
+                    <Input
+                      id="password"
+                      type="password"
+                      required
+                      placeholder="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                  </div>
                 </div>
-                <Input
-                  id="password"
-                  type="password"
-                  required
-                  placeholder="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-            </div>
-          </form>
+              </form>
+            </CardContent>
+            <CardFooter className="flex-col gap-2">
+              <Button
+                type="submit"
+                className="w-full"
+                onClick={handleEmailSignIn}
+                disabled={!email || !password}
+              >
+                Login
+              </Button>
+              <Button
+                type="submit"
+                className="w-full"
+                onClick={handleEmailSignUp}
+                disabled={!email || !password}
+              >
+                Sign Up
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={signInWithGoogle}
+              >
+                Login with Google
+              </Button>
+            </CardFooter>
+          </Card>
         </CardContent>
-        <CardFooter className="flex-col gap-2">
-          <Button
-            type="submit"
-            className="w-full"
-            onClick={handleEmailSignIn}
-            disabled={!email || !password}
-          >
-            Login
-          </Button>
-          <Button
-            type="submit"
-            className="w-full"
-            onClick={handleEmailSignUp}
-            disabled={!email || !password}
-          >
-            Sign Up
-          </Button>
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={signInWithGoogle}
-          >
-            Login with Google
-          </Button>
-        </CardFooter>
       </Card>
 
       {showRoleModal && user && (

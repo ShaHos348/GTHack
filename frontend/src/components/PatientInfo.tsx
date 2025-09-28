@@ -150,8 +150,31 @@ export default function PatientInfo() {
               Sign Out
             </NavigationMenuTrigger>
           </NavigationMenuItem>
+          {confirmSignout && (
+            <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+              <div className="bg-white rounded-lg shadow-lg p-6 w-80">
+                <h2 className="text-lg font-bold mb-4">Confirm Sign Out</h2>
+                <p className="mb-6">Are you sure you want to sign out?</p>
+                <div className="flex justify-end gap-4">
+                  <button
+                    onClick={() => setConfirmSignout(false)}
+                    className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSignout}
+                    className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </NavigationMenuList>
       </NavigationMenu>
+<<<<<<< Updated upstream
       {confirmSignout && (
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
           <div className="bg-white rounded-lg shadow-lg p-6 w-80">
@@ -174,6 +197,8 @@ export default function PatientInfo() {
           </div>
         </div>
       )}
+=======
+>>>>>>> Stashed changes
 
       {/* Dynamic content area */}
       {!patientFound ? (
@@ -197,7 +222,9 @@ export default function PatientInfo() {
           {activeTab === "patient-questionnaire-results" && (
             <PQResults pid={pid} />
           )}
-          {activeTab === "patient-test-reports" && <PTestsDoctorView pid={pid}/>}
+          {activeTab === "patient-test-reports" && (
+            <PTestsDoctorView pid={pid} />
+          )}
         </div>
       )}
     </div>
