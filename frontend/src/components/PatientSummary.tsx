@@ -20,6 +20,7 @@ import { Label } from "./ui/label";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -27,6 +28,7 @@ import {
 import { useAuth } from "../hooks/useAuth";
 import { db } from "./firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
+import { Toast } from "./ui/toast";
 
 interface PatientSummaryProps {
   pid: string | null;
@@ -73,10 +75,14 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
   const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">(
     "idle"
   );
+  const [showToast, setShowToast] = useState(false);
+  const [toastInfo, setToastInfo] = useState<[string, string]>(["", ""]);
 
   // Treatment management state
   const [treatments, setTreatments] = useState<Treatment[]>(initialTreatments);
   const [unsavedTreatments, setUnsavedTreatments] = useState<Treatment[]>([]); // new
+  const [confirmRemoveTreatment, setConfirmRemoveTreatment] =
+    useState<Treatment | null>(null);
   const [showAddTreatmentDialog, setShowAddTreatmentDialog] = useState(false);
   const [newTreatmentName, setNewTreatmentName] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -88,6 +94,12 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
   } | null>(null);
   const [questionnaireSummary, setQuestionnaireSummary] = useState<string>("");
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+
+  const showToastMessage = (message: string, color: string = "green") => {
+    setToastInfo([message, color]);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+  };
 
   const loadDoctorInsight = useCallback(async () => {
     if (!pid) return;
@@ -239,15 +251,17 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
   // Add treatment with AI analysis
   const addTreatment = async () => {
     if (!newTreatmentName.trim() || !doctorInsight) {
-      alert(
-        "Please enter a treatment name and ensure doctor's insight is available."
+      showToastMessage(
+        "Please enter a treatment name and ensure doctor's insight is available.",
+        "red"
       );
       return;
     }
 
     if (!patientData?.insuranceProvider || !patientData?.insuranceMemberId) {
-      alert(
-        "Patient insurance information is missing. Please ensure the patient has completed their insurance details in their profile."
+      showToastMessage(
+        "Patient insurance information is missing. Please ensure the patient has completed their insurance details in their profile.",
+        "red"
       );
       return;
     }
@@ -255,19 +269,16 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
     setIsAnalyzing(true);
 
     try {
-      // Get insurance data from patient record
       const insuranceProvider = patientData.insuranceProvider;
       const memberId = patientData.insuranceMemberId;
 
       const response = await fetch("http://localhost:3000/analyze-medication", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           insuranceProvider,
           memberId,
-          diagnosis: doctorInsight, // Use doctor's insight as diagnosis
+          diagnosis: doctorInsight,
           prescription: newTreatmentName,
         }),
       });
@@ -278,7 +289,6 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
 
       const aiAnalysis: GeminiResponse = await response.json();
 
-      // Determine coverage based on estimated copay
       const determineCoverage = (
         copay: string
       ): "Full Coverage" | "Copay" | "No Coverage" => {
@@ -303,9 +313,13 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
       setUnsavedTreatments((prev) => [...prev, newTreatment]);
       setNewTreatmentName("");
       setShowAddTreatmentDialog(false);
+      showToastMessage("Treatment analyzed and ready to add!", "green");
     } catch (error) {
       console.error("Error analyzing treatment:", error);
-      alert("Failed to analyze treatment alternatives. Please try again.");
+      showToastMessage(
+        "Failed to analyze treatment alternatives. Please try again.",
+        "red"
+      );
     } finally {
       setIsAnalyzing(false);
     }
@@ -319,20 +333,21 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
       await setDoc(
         doc(db, `prescription/${pid}`),
         { entries: updatedEntries },
-        { merge: true } // ✅ ensures we don’t wipe the document
+        { merge: true }
       );
       setTreatments(updatedEntries);
       setUnsavedTreatments([]);
-      alert("Treatments saved!");
+      showToastMessage("Treatments saved!", "green");
     } catch (err) {
       console.error("Failed to save treatments:", err);
-      alert("Failed to save treatments.");
+      showToastMessage("Failed to save treatments.", "red");
     }
   };
 
   const deleteTreatment = async (id: string) => {
     if (unsavedTreatments.some((t) => t.id === id)) {
       setUnsavedTreatments((prev) => prev.filter((t) => t.id !== id));
+      showToastMessage("Unsaved treatment removed.", "green");
       return;
     }
 
@@ -346,10 +361,10 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
           { merge: true }
         );
         setTreatments(updatedTreatments);
-        alert("Treatment deleted!");
+        showToastMessage("Treatment deleted!", "green");
       } catch (err) {
         console.error("Failed to delete treatment:", err);
-        alert("Failed to delete treatment.");
+        showToastMessage("Failed to delete treatment.", "red");
       }
     }
   };
@@ -391,12 +406,10 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
                 <CardTitle className="text-lg">Doctor's Insight</CardTitle>
                 <div className="flex items-center gap-2">
                   {saveStatus === "success" && (
-                    <span className="text-green-600 text-xs">✅ Saved</span>
+                    <span className="text-green-600 text-xs">Saved</span>
                   )}
                   {saveStatus === "error" && (
-                    <span className="text-red-600 text-xs">
-                      ❌ Error saving
-                    </span>
+                    <span className="text-red-600 text-xs">Error saving</span>
                   )}
                   <Button
                     onClick={saveDoctorInsight}
@@ -464,7 +477,7 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
                       <TableCell className="text-right">
                         <Button
                           variant="destructive"
-                          onClick={() => deleteTreatment(t.id)}
+                          onClick={() => setConfirmRemoveTreatment(t)}
                         >
                           X
                         </Button>
@@ -658,13 +671,19 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
                               >
                                 Choose This
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => alert(alternative.rationale)}
-                              >
-                                View Rationale
-                              </Button>
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button size="sm">View Rationale</Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>Rationale</DialogTitle>
+                                    <DialogDescription>
+                                      {alternative.rationale}
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                </DialogContent>
+                              </Dialog>
                             </TableCell>
                           </TableRow>
                         )
@@ -677,6 +696,39 @@ const PatientSummary: React.FC<PatientSummaryProps> = ({ pid }) => {
           </Card>
         </CardContent>
       </Card>
+
+      {/* Full-screen modal for remove confirmation */}
+      {confirmRemoveTreatment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-80">
+            <h2 className="text-lg font-bold mb-4">Confirm Remove</h2>
+            <p className="mb-6">
+              Are you sure you want to remove{" "}
+              <strong>{confirmRemoveTreatment.treatmentName}</strong> from this
+              patient's treatments?
+            </p>
+            <div className="flex justify-end gap-4">
+              <button
+                onClick={() => setConfirmRemoveTreatment(null)}
+                className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  deleteTreatment(confirmRemoveTreatment.id);
+                  setConfirmRemoveTreatment(null);
+                }}
+                className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showToast && <Toast message={toastInfo[0]} color={toastInfo[1]} />}
     </div>
   );
 };

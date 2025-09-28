@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Toast } from "./ui/toast";
 
 type Values = {
   firstName: string;
@@ -66,9 +67,18 @@ const PHDoctorView: React.FC<PHDoctorViewProps> = ({ pid }) => {
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState<string>("");
 
+  // Toast state
+  const [showToast, setShowToast] = useState(false);
+  const [toastInfo, setToastInfo] = useState<[string, string]>(["", ""]);
+  const showToastMessage = (message: string, color: string) => {
+    setToastInfo([message, color]);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 5000); // auto-hide after 5s
+  };
+
   const uid = useMemo(() => auth.currentUser?.uid ?? null, [auth.currentUser]);
 
-  // Load existing data (if any)
+  // Load patient data
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -86,9 +96,8 @@ const PHDoctorView: React.FC<PHDoctorViewProps> = ({ pid }) => {
             const data = snap.data() as Partial<Values>;
             setValues({ ...emptyValues, ...data });
           } else {
-            setLoading(false);
-            setBanner("Unable to find patient");
             setValues(emptyValues);
+            setBanner("Unable to find patient");
           }
         }
       } catch (e: any) {
@@ -112,6 +121,7 @@ const PHDoctorView: React.FC<PHDoctorViewProps> = ({ pid }) => {
       setValues((v) => ({ ...v, [key]: e.target.value }));
     };
 
+  // Validation with toast
   const validate = (v: Values): Errors => {
     const req: (keyof Values)[] = [
       "firstName",
@@ -126,12 +136,25 @@ const PHDoctorView: React.FC<PHDoctorViewProps> = ({ pid }) => {
       "emergencyPhone",
     ];
     const next: Errors = {};
-    for (const k of req) if (!v[k]) next[k] = "This field is required.";
+    for (const k of req) {
+      if (!v[k]) {
+        next[k] = "This field is required.";
+        showToastMessage(`${k} is required.`, "red");
+      }
+    }
 
-    if (v.phone && !/^\d{3}-\d{3}-\d{4}$/.test(v.phone))
+    if (v.phone && !/^\d{3}-\d{3}-\d{4}$/.test(v.phone)) {
       next.phone = "Use format 999-999-9999.";
-    if (v.emergencyPhone && !/^\d{3}-\d{3}-\d{4}$/.test(v.emergencyPhone))
+      showToastMessage("Phone must be in format 999-999-9999.", "red");
+    }
+
+    if (v.emergencyPhone && !/^\d{3}-\d{3}-\d{4}$/.test(v.emergencyPhone)) {
       next.emergencyPhone = "Use format 999-999-9999.";
+      showToastMessage(
+        "Emergency phone must be in format 999-999-9999.",
+        "red"
+      );
+    }
 
     return next;
   };
@@ -145,16 +168,15 @@ const PHDoctorView: React.FC<PHDoctorViewProps> = ({ pid }) => {
 
     if (!uid) {
       setErrors({ form: "You must be signed in to save." });
+      showToastMessage("You must be signed in to save.", "red");
       return;
     }
 
-    // save values into database, go to navbar
     setSaving(true);
     try {
-      const ref = doc(db, "patients", pid);
+      const ref = doc(db, "patients", pid!);
       const snap = await getDoc(ref);
 
-      // If new, include doctor: null
       const payload = {
         ...values,
         pid,
@@ -163,9 +185,11 @@ const PHDoctorView: React.FC<PHDoctorViewProps> = ({ pid }) => {
       };
 
       await setDoc(ref, payload, { merge: true });
+      showToastMessage("Patient history updated successfully!", "green");
       setBanner("✅ Patient history updated.");
     } catch (err: any) {
       setErrors({ form: err?.message || "Failed to save." });
+      showToastMessage(err?.message || "Failed to save.", "red");
     } finally {
       setSaving(false);
     }
@@ -189,7 +213,7 @@ const PHDoctorView: React.FC<PHDoctorViewProps> = ({ pid }) => {
       <Card className="w-full max-w-4xl">
         <CardHeader>
           <CardTitle className="font-bold">Patient History</CardTitle>
-          <CardDescription>Fill out or update your information</CardDescription>
+          <CardDescription>Fill out or update patient information</CardDescription>
         </CardHeader>
 
         <CardContent>
@@ -211,6 +235,8 @@ const PHDoctorView: React.FC<PHDoctorViewProps> = ({ pid }) => {
               {errors.form}
             </div>
           )}
+
+          {showToast && <Toast message={toastInfo[0]} color={toastInfo[1]} />}
 
           <form onSubmit={handleSubmit} noValidate>
             <div className="flex flex-col gap-8">

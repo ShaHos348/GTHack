@@ -13,6 +13,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Button } from "./ui/button";
 import { useNavigate } from "react-router-dom";
+import { Toast } from "./ui/toast";
 
 type Values = {
   firstName: string;
@@ -64,6 +65,15 @@ const PatientHistory: React.FC = () => {
   const [banner, setBanner] = useState<string>("");
   const navigate = useNavigate();
 
+  // Add this toast helper
+  const [showToast, setShowToast] = useState(false);
+  const [toastInfo, setToastInfo] = useState<[string, string]>(["", ""]);
+  const showToastMessage = (message: string, color: string) => {
+    setToastInfo([message, color]);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+  };
+
   const uid = useMemo(() => auth.currentUser?.uid ?? null, [auth.currentUser]);
 
   // Load existing data (if any)
@@ -108,6 +118,7 @@ const PatientHistory: React.FC = () => {
       setValues((v) => ({ ...v, [key]: e.target.value }));
     };
 
+  // validate function (unchanged), just add toast after setErrors for each field
   const validate = (v: Values): Errors => {
     const req: (keyof Values)[] = [
       "firstName",
@@ -122,16 +133,30 @@ const PatientHistory: React.FC = () => {
       "emergencyPhone",
     ];
     const next: Errors = {};
-    for (const k of req) if (!v[k]) next[k] = "This field is required.";
+    for (const k of req) {
+      if (!v[k]) {
+        next[k] = "This field is required.";
+        showToastMessage(`${k} is required.`, "red");
+      }
+    }
 
-    if (v.phone && !/^\d{3}-\d{3}-\d{4}$/.test(v.phone))
+    if (v.phone && !/^\d{3}-\d{3}-\d{4}$/.test(v.phone)) {
       next.phone = "Use format 999-999-9999.";
-    if (v.emergencyPhone && !/^\d{3}-\d{3}-\d{4}$/.test(v.emergencyPhone))
+      showToastMessage("Phone must be in format 999-999-9999.", "red");
+    }
+
+    if (v.emergencyPhone && !/^\d{3}-\d{3}-\d{4}$/.test(v.emergencyPhone)) {
       next.emergencyPhone = "Use format 999-999-9999.";
+      showToastMessage(
+        "Emergency phone must be in format 999-999-9999.",
+        "red"
+      );
+    }
 
     return next;
   };
 
+  // handleSubmit
   const handleSubmit: React.FormEventHandler<HTMLFormElement> = async (e) => {
     e.preventDefault();
     setBanner("");
@@ -141,16 +166,15 @@ const PatientHistory: React.FC = () => {
 
     if (!uid) {
       setErrors({ form: "You must be signed in to save." });
+      showToastMessage("You must be signed in to save.", "red");
       return;
     }
 
-    // save values into database, go to navbar
     setSaving(true);
     try {
       const ref = doc(db, "patients", uid);
       const snap = await getDoc(ref);
 
-      // If new, include doctor: null
       const payload = {
         ...values,
         uid,
@@ -159,9 +183,11 @@ const PatientHistory: React.FC = () => {
       };
 
       await setDoc(ref, payload, { merge: true });
+      showToastMessage("Patient history saved successfully!", "green");
       navigate("/patientdashboard");
     } catch (err: any) {
       setErrors({ form: err?.message || "Failed to save." });
+      showToastMessage(err?.message || "Failed to save.", "red");
     } finally {
       setSaving(false);
     }
@@ -207,6 +233,8 @@ const PatientHistory: React.FC = () => {
               {errors.form}
             </div>
           )}
+
+          {showToast && <Toast message={toastInfo[0]} color={toastInfo[1]} />}
 
           <form onSubmit={handleSubmit} noValidate>
             <div className="flex flex-col gap-8">

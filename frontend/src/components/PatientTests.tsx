@@ -15,12 +15,21 @@ import {
   deleteFile,
   type UserFile,
 } from "./firebase";
+import { Toast } from "./ui/toast"; // make sure path is correct
 
 const PatientTests = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<UserFile[]>([]);
   const [fullScreenFile, setFullScreenFile] = useState<UserFile | null>(null);
+  const [showToast, setShowToast] = useState(false);
+  const [toastInfo, setToastInfo] = useState<[string, string]>(["", ""]);
   const uid = auth.currentUser?.uid || "";
+
+  const showToastMessage = (message: string, color: string = "black") => {
+    setToastInfo([message, color]);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+  };
 
   useEffect(() => {
     if (!uid) return;
@@ -32,6 +41,7 @@ const PatientTests = () => {
         setUploadedFiles(sortedFiles);
       } catch (err) {
         console.error("Error fetching files:", err);
+        showToastMessage("Failed to fetch files.", "red");
       }
     };
 
@@ -49,9 +59,10 @@ const PatientTests = () => {
       };
       setUploadedFiles((prev) => [newFile, ...prev]);
       setSelectedFile(null);
+      showToastMessage("File uploaded successfully!", "green");
     } catch (err) {
       console.error("Upload failed:", err);
-      alert("❌ Failed to upload file.");
+      showToastMessage("Failed to upload file.", "red");
     }
   };
 
@@ -60,9 +71,10 @@ const PatientTests = () => {
     try {
       await deleteFile(uid, file.name);
       setUploadedFiles((prev) => prev.filter((f) => f.name !== file.name));
+      showToastMessage("File deleted successfully!", "green");
     } catch (err) {
       console.error("Delete failed:", err);
-      alert("❌ Failed to delete file.");
+      showToastMessage("Failed to delete file.", "red");
     }
   };
 
@@ -92,7 +104,6 @@ const PatientTests = () => {
             {uploadedFiles.length > 0 && (
               <div className="mt-6">
                 <h3 className="font-semibold mb-4">Uploaded Reports:</h3>
-                {/* horizontal scroll container */}
                 <div className="w-full overflow-x-auto">
                   <div className="flex gap-4 min-w-max">
                     {uploadedFiles.map((file) => (
@@ -100,7 +111,6 @@ const PatientTests = () => {
                         key={file.name}
                         className="min-w-[280px] max-w-xs border rounded shadow-sm p-3 flex flex-col"
                       >
-                        {/* Preview */}
                         <div className="flex-1 flex items-center justify-center bg-gray-50 rounded">
                           {file.name.endsWith(".pdf") ? (
                             <iframe
@@ -117,12 +127,10 @@ const PatientTests = () => {
                           )}
                         </div>
 
-                        {/* Filename */}
                         <p className="mt-2 text-sm text-center truncate">
                           {file.name.split("/").pop()}
                         </p>
 
-                        {/* Buttons at bottom */}
                         <div className="mt-3 flex justify-between gap-2">
                           <Button
                             size="sm"
@@ -154,7 +162,6 @@ const PatientTests = () => {
         </CardFooter>
       </Card>
 
-      {/* Full screen modal */}
       {fullScreenFile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-80">
           <div className="relative w-full max-w-6xl h-full max-h-[90vh] p-4">
@@ -181,6 +188,8 @@ const PatientTests = () => {
           </div>
         </div>
       )}
+
+      {showToast && <Toast message={toastInfo[0]} color={toastInfo[1]} />}
     </div>
   );
 };

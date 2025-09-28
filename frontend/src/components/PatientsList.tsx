@@ -17,15 +17,25 @@ import {
 } from "@/components/ui/card";
 import { db, auth } from "./firebase";
 import { collection, getDocs, doc, getDoc, updateDoc, query, where } from "firebase/firestore";
+import { Toast } from "./ui/toast";
 
 export function PatientsList() {
   const [patients, setPatients] = useState<any[]>([]);
   const [showPopup, setShowPopup] = useState(false);
   const [patientIdInput, setPatientIdInput] = useState("");
-  const [confirmRemovePatient, setConfirmRemovePatient] = useState<any>(null); // patient object to confirm removal
+  const [confirmRemovePatient, setConfirmRemovePatient] = useState<any>(null);
+  const [showToast, setShowToast] = useState(false);
+  const [toastInfo, setToastInfo] = useState<[string, string]>(["", ""]);
   const navigate = useNavigate();
 
   const uid = auth.currentUser?.uid;
+
+  // Toast helper
+  const showToastMessage = (message: string, color: string) => {
+    setToastInfo([message, color]);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 4000);
+  };
 
   const fetchPatients = async () => {
     if (!uid) return;
@@ -49,17 +59,17 @@ export function PatientsList() {
     const snap = await getDoc(ref);
 
     if (!snap.exists()) {
-      alert("❌ Patient not found.");
+      showToastMessage("Patient not found.", "red");
       return;
     }
 
     const data = snap.data();
     if (!data.doctor || data.doctor === null) {
       await updateDoc(ref, { doctor: uid });
-      alert("✅ Patient assigned!");
+      showToastMessage("Patient assigned successfully!", "green");
       fetchPatients();
     } else {
-      alert("⚠️ Patient already assigned to a doctor.");
+      showToastMessage("Patient already assigned to a doctor.", "red");
     }
 
     setShowPopup(false);
@@ -71,9 +81,10 @@ export function PatientsList() {
       await updateDoc(doc(db, "patients", patientUid), { doctor: null });
       setPatients((prev) => prev.filter((p) => p.uid !== patientUid));
       setConfirmRemovePatient(null);
+      showToastMessage("Patient removed successfully.", "green");
     } catch (err) {
       console.error("Error removing patient:", err);
-      alert("❌ Failed to remove patient. Check Firestore rules.");
+      showToastMessage("Failed to remove patient. Check Firestore rules.", "red");
     }
   };
 
@@ -181,6 +192,9 @@ export function PatientsList() {
           </div>
         </div>
       )}
+
+      {/* Toast */}
+      {showToast && <Toast message={toastInfo[0]} color={toastInfo[1]} />}
     </Card>
   );
 }

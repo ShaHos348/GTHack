@@ -14,6 +14,7 @@ import { auth, db } from "./firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { logout } from "./firebase";
 import PatientSummary from "./PatientSummary";
+import MeetingSearchDocView from "./MeetingSearchDocView";
 
 export default function PatientInfo() {
   const navigate = useNavigate();
@@ -84,7 +85,7 @@ export default function PatientInfo() {
     <div className="flex flex-col items-center bg-transparent py-30">
       <NavigationMenu
         viewport={false}
-        className="bg-card text-card-foreground shadow-sm sticky top-4 z-50 mx-auto w-3/4 border-gray-200 border w-md rounded-full flex items-center justify-center px-4 py-3"
+        className="sticky top-4 z-50 mx-auto w-3/4 bg-purple-100 text-card-foreground border border-gray-200 rounded-full shadow-sm flex items-center justify-center px-4 py-3"
       >
         <NavigationMenuList>
           <NavigationMenuItem>
@@ -134,12 +135,22 @@ export default function PatientInfo() {
           <NavigationMenuItem>
             <NavigationMenuTrigger
               className={`w-full font-semibold rounded-full transition-colors bg-transparent "
+            ${activeTab === "meeting-search" ? "text-primary " : "text-black"}`}
+              onClick={() => handleTabChange("meeting-search")}
+            >
+              Meeting Search
+            </NavigationMenuTrigger>
+          </NavigationMenuItem>
+
+          {/* <NavigationMenuItem>
+            <NavigationMenuTrigger
+              className={`w-full font-semibold rounded-full transition-colors bg-transparent "
   ${activeTab === "patient-test-reports" ? "text-primary " : "text-black"}`}
               onClick={() => handleTabChange("patient-test-reports")}
             >
               Test Reports
             </NavigationMenuTrigger>
-          </NavigationMenuItem>
+          </NavigationMenuItem> */}
 
           <NavigationMenuItem>
             <NavigationMenuTrigger
@@ -174,28 +185,6 @@ export default function PatientInfo() {
           )}
         </NavigationMenuList>
       </NavigationMenu>
-      {confirmSignout && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-80">
-            <h2 className="text-lg font-bold mb-4">Confirm Sign Out</h2>
-            <p className="mb-6">Are you sure you want to sign out?</p>
-            <div className="flex justify-end gap-4">
-              <button
-                onClick={() => setConfirmSignout(false)}
-                className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSignout}
-                className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Dynamic content area */}
       {!patientFound ? (
@@ -216,12 +205,13 @@ export default function PatientInfo() {
         >
           {activeTab === "patient-summary" && <PatientSummary pid={pid} />}
           {activeTab === "patient-history" && <PHDoctorView pid={pid} />}
+          {activeTab === "meeting-search" && <MeetingSearchDocView patientId={pid} />}
           {activeTab === "patient-questionnaire-results" && (
             <PQResults pid={pid} />
           )}
-          {activeTab === "patient-test-reports" && (
+          {/* {activeTab === "patient-test-reports" && (
             <PTestsDoctorView pid={pid} />
-          )}
+          )} */}
         </div>
       )}
     </div>

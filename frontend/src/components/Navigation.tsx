@@ -44,7 +44,7 @@ export default function Navigation() {
     <div className="flex flex-col align-middle bg-transparent items-center">
       <NavigationMenu
         viewport={false}
-        className="bg-card text-card-foreground shadow-sm sticky top-4 z-50 mx-auto w-3/4 border-gray-200 border w-md rounded-full flex items-center justify-center px-4 py-3"
+        className="sticky top-4 z-50 mx-auto w-3/4 bg-purple-100 text-card-foreground border border-gray-200 rounded-full shadow-sm flex items-center justify-center px-4 py-3"
       >
         <NavigationMenuList>
           <NavigationMenuItem>
@@ -87,8 +87,6 @@ export default function Navigation() {
             </NavigationMenuTrigger>
           </NavigationMenuItem>
 
-
-
           <NavigationMenuItem>
             <NavigationMenuTrigger
               className={`w-full font-semibold rounded-full transition-colors bg-transparent "
@@ -130,7 +128,7 @@ export default function Navigation() {
       >
         {activeTab === "meeting-search" && <MeetingSearch />}
         {activeTab === "patient-questionnaire" && (
-          <PatientQuestionnaire 
+          <PatientQuestionnaire
             onComplete={() => handleTabChange("dynamic-questionnaire")}
           />
         )}

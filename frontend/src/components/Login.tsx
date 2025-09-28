@@ -25,15 +25,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Link, useNavigate } from "react-router-dom";
-import sampleImage from "../assets/sampleimage.png";
+import loginImage from "../assets/LoginImage.png";
 import hospitalBackgroundBlur from "../assets/hospitalbackgroundblur.jpg";
+import { Toast } from "./ui/toast";
 
 const StorageTest: React.FC = () => {
   const navigate = useNavigate();
+  const [showToast, setShowToast] = useState(false);
+  const [toastInfo, setToastInfo] = useState<[string, string]>(["", ""]);
   const [user, setUser] = useState<any>(null);
-  const [status, setStatus] = useState<string>("Not signed in.");
-  const [file, setFile] = useState<File | null>(null);
-  const [downloadUrl, setDownloadUrl] = useState<string>("");
 
   // email/password fields
   const [email, setEmail] = useState("");
@@ -50,19 +50,25 @@ const StorageTest: React.FC = () => {
   const routeForRole = (r: UserRole | null | undefined) =>
     r && ROUTES[r] ? ROUTES[r] : null;
 
+  // toast helper function
+  const showToastMessage = (message: string, color: string = "green") => {
+    setToastInfo([message, color]);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+  };
+
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u);
-      setDownloadUrl("");
 
       if (!u) {
-        setStatus("Not signed in.");
+        showToastMessage("Not signed in.", "red");
         setRoleState(null);
         setShowRoleModal(false);
         return;
       }
 
-      setStatus(`Signed in as ${u.email || u.uid}`);
+      showToastMessage(`Signed in as ${u.email || u.uid}`, "green");
       const existing = await getUserRole(u.uid);
       if (existing) {
         setRoleState(existing);
@@ -77,42 +83,38 @@ const StorageTest: React.FC = () => {
   }, []);
 
   const handleEmailSignIn = async () => {
-    setStatus("Signing in…");
+    showToastMessage("Signing in…", "green");
     try {
       await signInWithEmail(email.trim(), password);
       const u = auth.currentUser;
       if (!u) {
-        setStatus("❌ Sign-in failed: no user.");
+        showToastMessage("Sign-in failed: no user.", "red");
         return;
       }
 
-      // fetch stored role
       const r = await getUserRole(u.uid);
-
-      // if role exists → route; otherwise show the modal to set a role
       const dest = routeForRole(r);
       if (dest) {
-        setStatus("✅ Signed in");
+        showToastMessage("Signed in", "green");
         navigate(dest);
       } else {
-        setStatus("✅ Signed in — choose your role");
+        showToastMessage("Signed in — choose your role", "green");
         setShowRoleModal(true);
       }
     } catch (err: any) {
       console.error(err);
-      setStatus(`❌ Sign-in failed: ${err.code || err.message}`);
+      showToastMessage(`Sign-in failed: ${err.code || err.message}`, "red");
     }
   };
 
   const handleEmailSignUp = async () => {
-    setStatus("Creating account…");
+    showToastMessage("Creating account…", "green");
     try {
       await signUpWithEmail(email.trim(), password);
-      setStatus("✅ Account created & signed in");
-      // role will be collected by modal after state change
+      showToastMessage("Account created & signed in", "green");
     } catch (err: any) {
       console.error(err);
-      setStatus(`❌ Sign-up failed: ${err.code || err.message}`);
+      showToastMessage(`Sign-up failed: ${err.code || err.message}`, "red");
     }
   };
 
@@ -122,31 +124,10 @@ const StorageTest: React.FC = () => {
       await setUserRole(user.uid, r);
       setRoleState(r);
       setShowRoleModal(false);
-      setStatus(`✅ Role set: ${r}`);
+      showToastMessage(`Role set: ${r}`, "green");
     } catch (e: any) {
       console.error(e);
-      setStatus(`❌ Failed to set role: ${e.message || e.code}`);
-    }
-  };
-
-  const handleUpload = async () => {
-    if (!user || !file) return;
-    if (!role) {
-      setStatus("Please choose a role first.");
-      setShowRoleModal(true);
-      return;
-    }
-    setStatus("Uploading…");
-    try {
-      const url = await uploadFile(user.uid, file);
-      setDownloadUrl(url);
-      setStatus("✅ Uploaded!");
-      setFile(null);
-    } catch (err: any) {
-      console.error(err);
-      setStatus(
-        `❌ Upload failed: ${err?.code || err?.message || String(err)}`
-      );
+      showToastMessage(`Failed to set role: ${e.message || e.code}`, "red");
     }
   };
 
@@ -163,7 +144,7 @@ const StorageTest: React.FC = () => {
           <Card
             className="w-3/5 bg-center bg-no-repeat"
             style={{
-              backgroundImage: `url(${sampleImage})`,
+              backgroundImage: `url(${loginImage})`,
               backgroundSize: "cover",
             }}
           ></Card>
@@ -191,12 +172,6 @@ const StorageTest: React.FC = () => {
                   <div className="grid gap-2">
                     <div className="flex items-center">
                       <Label htmlFor="password">Password</Label>
-                      <a
-                        href="#"
-                        className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
-                      >
-                        Forgot your password?
-                      </a>
                     </div>
                     <Input
                       id="password"
@@ -227,17 +202,12 @@ const StorageTest: React.FC = () => {
               >
                 Sign Up
               </Button>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={signInWithGoogle}
-              >
-                Login with Google
-              </Button>
             </CardFooter>
           </Card>
         </CardContent>
       </Card>
+
+      {showToast && <Toast message={toastInfo[0]} color={toastInfo[1]} />}
 
       {showRoleModal && user && (
         <div
