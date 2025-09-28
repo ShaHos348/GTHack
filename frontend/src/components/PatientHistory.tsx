@@ -331,7 +331,9 @@ const PatientHistory: React.FC = () => {
                   />
                 </div>
                 <div className="flex-1 space-y-2">
-                  <Label htmlFor="insurance-member-id">Insurance Member ID</Label>
+                  <Label htmlFor="insurance-member-id">
+                    Insurance Member ID
+                  </Label>
                   <Input
                     id="insurance-member-id"
                     value={values.insuranceMemberId}
@@ -388,7 +390,10 @@ const PatientHistory: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="lifestyle">Lifestyle (How often do you smoke, drink alcohol and exercise?)</Label>
+                <Label htmlFor="lifestyle">
+                  Lifestyle (How often do you smoke, drink alcohol and
+                  exercise?)
+                </Label>
                 <textarea
                   id="lifestyle"
                   value={values.lifestyle}

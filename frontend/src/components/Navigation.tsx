@@ -13,6 +13,7 @@ import PatientTests from "./PatientTests";
 import DynamicQuestionnaire from "./DynamicQuestionnaire";
 import { logout } from "./firebase";
 import { useNavigate } from "react-router-dom";
+import MeetingSearch from "./MeetingSearch";
 
 export default function Navigation() {
   const [activeTab, setActiveTab] = React.useState("patient-questionnaire");
@@ -29,11 +30,6 @@ export default function Navigation() {
       setFade(true); // fade in
       setActiveTab(tab);
     }, 200); // duration matches CSS fade
-  };
-
-  const handleQuestionnaireComplete = () => {
-    // Transition to Dynamic Questionnaire after Patient Questionnaire is saved
-    handleTabChange("dynamic-questionnaire");
   };
   const handleSignout = async () => {
     try {
@@ -74,6 +70,16 @@ export default function Navigation() {
           <NavigationMenuItem>
             <NavigationMenuTrigger
               className={`w-full font-semibold rounded-full transition-colors bg-transparent "
+  ${activeTab === "meeting-search" ? "text-primary " : "text-black"}`}
+              onClick={() => handleTabChange("meeting-search")}
+            >
+              Meeting Search
+            </NavigationMenuTrigger>
+          </NavigationMenuItem>
+
+          <NavigationMenuItem>
+            <NavigationMenuTrigger
+              className={`w-full font-semibold rounded-full transition-colors bg-transparent "
   ${activeTab === "patient-tests" ? "text-primary " : "text-black"}`}
               onClick={() => handleTabChange("patient-tests")}
             >
@@ -81,7 +87,15 @@ export default function Navigation() {
             </NavigationMenuTrigger>
           </NavigationMenuItem>
 
-
+          <NavigationMenuItem>
+            <NavigationMenuTrigger
+              className={`w-full font-semibold rounded-full transition-colors bg-transparent "
+  ${activeTab === "dynamic-questionnaire" ? "text-primary " : "text-black"}`}
+              onClick={() => handleTabChange("dynamic-questionnaire")}
+            >
+              Dynamic Questionnaire
+            </NavigationMenuTrigger>
+          </NavigationMenuItem>
 
           <NavigationMenuItem>
             <NavigationMenuTrigger
@@ -93,39 +107,37 @@ export default function Navigation() {
             </NavigationMenuTrigger>
           </NavigationMenuItem>
         </NavigationMenuList>
-      </NavigationMenu>
-
-      {confirmSignout && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-80">
-            <h2 className="text-lg font-bold mb-4">Confirm Sign Out</h2>
-            <p className="mb-6">Are you sure you want to sign out?</p>
-            <div className="flex justify-end gap-4">
-              <button
-                onClick={() => setConfirmSignout(false)}
-                className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSignout}
-                className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
-              >
-                Sign Out
-              </button>
+        {confirmSignout && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+            <div className="bg-white rounded-lg shadow-lg p-6 w-80">
+              <h2 className="text-lg font-bold mb-4">Confirm Sign Out</h2>
+              <p className="mb-6">Are you sure you want to sign out?</p>
+              <div className="flex justify-end gap-4">
+                <button
+                  onClick={() => setConfirmSignout(false)}
+                  className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSignout}
+                  className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
+                >
+                  Sign Out
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </NavigationMenu>
 
       <div
         className={`flex-1 w-3/4 transition-opacity duration-200 ${
           fade ? "opacity-100" : "opacity-0"
         }`}
       >
-        {activeTab === "patient-questionnaire" && (
-          <PatientQuestionnaire onComplete={handleQuestionnaireComplete} />
-        )}
+        {activeTab === "meeting-search" && <MeetingSearch />}
+        {activeTab === "patient-questionnaire" && <PatientQuestionnaire />}
         {activeTab === "patient-history" && <PatientHistory />}
         {activeTab === "patient-tests" && <PatientTests />}
         {activeTab === "dynamic-questionnaire" && <DynamicQuestionnaire />}
